@@ -8,6 +8,7 @@ import {
   useToolcraftDispatch,
   useToolcraftEvaluatedValues,
   useToolcraftProductSceneFrame,
+  useToolcraftTheme,
 } from "@/toolcraft/runtime/react";
 
 import styles from "./robot-head-canvas.module.css";
@@ -34,6 +35,7 @@ function disposeObject(root: THREE.Object3D): void {
 export function RobotHeadCanvas(): React.JSX.Element | null {
   const frame = useToolcraftProductSceneFrame();
   const dispatch = useToolcraftDispatch();
+  const { resolvedTheme } = useToolcraftTheme();
   const values = useToolcraftEvaluatedValues();
   const source = React.useSyncExternalStore(subscribeUrdfSource, getUrdfSource, getUrdfSource);
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -41,6 +43,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   const sceneRef = React.useRef<THREE.Scene | null>(null);
   const cameraRef = React.useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = React.useRef<THREE.WebGLRenderer | null>(null);
+  const gridRef = React.useRef<THREE.GridHelper | null>(null);
   const [status, setStatus] = React.useState("正在载入默认 head URDF…");
   const [error, setError] = React.useState(false);
 
@@ -48,6 +51,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     dispatch({ target: "panels.timeline.visible", type: "controls.setValue", value: true });
     dispatch({ target: "panels.timeline.extended", type: "controls.setValue", value: true });
     dispatch({ expanded: true, type: "timeline.setExpanded" });
+    dispatch({ panelId: "timeline", type: "panels.resetOffset" });
   }, [dispatch]);
 
   React.useEffect(() => {
@@ -78,6 +82,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     grid.rotation.x = Math.PI / 2;
     grid.position.z = -1.15;
     scene.add(grid);
+    gridRef.current = grid;
 
     sceneRef.current = scene;
     cameraRef.current = camera;
@@ -112,7 +117,9 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       unregisterSurface();
       observer.disconnect();
       if (robotRef.current) disposeObject(robotRef.current);
+      if (gridRef.current) disposeObject(gridRef.current);
       robotRef.current = null;
+      gridRef.current = null;
       renderer.dispose();
       renderer.domElement.remove();
       rendererRef.current = null;
@@ -120,6 +127,30 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       sceneRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    const isLight = resolvedTheme === "light";
+    scene.fog = new THREE.Fog(isLight ? 0xaeb9c7 : 0x080b12, 5.5, 10);
+
+    const previousGrid = gridRef.current;
+    if (previousGrid) {
+      scene.remove(previousGrid);
+      disposeObject(previousGrid);
+    }
+    const grid = new THREE.GridHelper(
+      5,
+      20,
+      isLight ? 0x64748b : 0x334155,
+      isLight ? 0x94a3b8 : 0x1e293b,
+    );
+    grid.rotation.x = Math.PI / 2;
+    grid.position.z = -1.15;
+    scene.add(grid);
+    gridRef.current = grid;
+  }, [resolvedTheme]);
 
   React.useEffect(() => {
     const scene = sceneRef.current;
@@ -191,7 +222,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   if (frame.kind !== "ready") return null;
   return (
     <div className={styles.surface} ref={hostRef}>
-      <p className={`${styles.status} ${error ? styles.error : ""}`}>{status}</p>
+      {error ? <p className={`${styles.status} ${styles.error}`} role="alert">{status}</p> : null}
     </div>
   );
 }

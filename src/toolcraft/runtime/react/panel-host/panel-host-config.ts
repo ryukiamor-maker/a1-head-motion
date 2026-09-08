@@ -28,7 +28,7 @@ export const panelHostConfig = {
     panelId: "timeline",
     snapEdges: ["top", "bottom"],
     stageClassName: "min-h-[320px]",
-    wrapperClassName: "absolute top-2.5 left-1/2 z-40 -translate-x-1/2",
+    wrapperClassName: "absolute top-2.5 right-[320px] left-0 z-40 flex justify-center",
   },
   toolbar: {
     dragMode: "panel",

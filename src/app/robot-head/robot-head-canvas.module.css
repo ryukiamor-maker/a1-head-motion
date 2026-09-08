@@ -11,6 +11,12 @@
     linear-gradient(160deg, #111827, #05070b 74%);
 }
 
+:global([data-toolcraft-theme="light"]) .surface {
+  background:
+    radial-gradient(circle at 50% 28%, rgb(235 240 246 / 76%), transparent 46%),
+    linear-gradient(160deg, #cbd4df, #aeb9c7 76%);
+}
+
 .canvas {
   display: block;
   width: 100%;

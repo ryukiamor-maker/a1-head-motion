@@ -76,8 +76,16 @@ export function applyRobotHeadValues(
   const pose = readToolcraftOrientationPose(values["view.orbit"]);
   const distance = asNumber(values["camera.distance"], 4.5);
   camera.fov = asNumber(values["camera.fov"], 36);
-  camera.position.fromArray(pose.position).normalize().multiplyScalar(distance);
-  camera.up.fromArray(pose.up).normalize();
+  const cameraDirection = new THREE.Vector3().fromArray(pose.position).normalize();
+  camera.position.copy(cameraDirection).multiplyScalar(distance);
+  // The head URDF is Z-up. Keeping a stable product-space up vector prevents
+  // axis snaps from introducing a 90°/180° camera roll. Looking straight down
+  // the Z axis needs a non-parallel fallback so lookAt can still form a basis.
+  camera.up.set(
+    0,
+    Math.abs(cameraDirection.z) > 0.999 ? 1 : 0,
+    Math.abs(cameraDirection.z) > 0.999 ? 0 : 1,
+  );
   camera.lookAt(0, 0, asNumber(values["camera.targetZ"], 0));
   camera.updateProjectionMatrix();
 }

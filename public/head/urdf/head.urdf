@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="head">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.000423092501776838 -0.000449642388327431 -0.0189263892282658"
+        rpy="0 0 0" />
+      <mass
+        value="0.455861650695922" />
+      <inertia
+        ixx="0.000587308186169251"
+        ixy="-1.06042209471881E-05"
+        ixz="1.22813164718298E-06"
+        iyy="0.000852038090042886"
+        iyz="-4.88441344182294E-06"
+        izz="0.0014024470594033" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.909803921568627 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="pitch_Link">
+    <inertial>
+      <origin
+        xyz="-0.0112341117459365 -0.00694752862537319 0.0321857851897055"
+        rpy="0 0 0" />
+      <mass
+        value="0.0930350143835444" />
+      <inertia
+        ixx="5.8840535188368E-05"
+        ixy="6.01702233348234E-06"
+        ixz="9.0952965704988E-06"
+        iyy="5.20668760411307E-05"
+        iyz="-1.53404797297349E-05"
+        izz="2.74431475292274E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/pitch_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.909803921568627 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/pitch_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="axis1"
+    type="revolute">
+    <origin
+      xyz="0 0 0.028"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="pitch_Link" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="-0.61"
+      upper="0.61"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="roll_Link">
+    <inertial>
+      <origin
+        xyz="0.0111167052128765 4.83290823022192E-05 0.0322586283549145"
+        rpy="0 0 0" />
+      <mass
+        value="0.0844994308339552" />
+      <inertia
+        ixx="2.2139787436951E-05"
+        ixy="-5.38173376263137E-09"
+        ixz="5.47545045413997E-06"
+        iyy="2.8013564394473E-05"
+        iyz="-4.91926274411279E-08"
+        izz="2.65043891155872E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/roll_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.909803921568627 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/roll_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="axis2"
+    type="revolute">
+    <origin
+      xyz="0 0 0.048"
+      rpy="0 0 0" />
+    <parent
+      link="pitch_Link" />
+    <child
+      link="roll_Link" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-0.52"
+      upper="0.52"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="yaw_Link">
+    <inertial>
+      <origin
+        xyz="0.00103214967479447 5.14693341075658E-05 0.0132585704276815"
+        rpy="0 0 0" />
+      <mass
+        value="0.69749510951816" />
+      <inertia
+        ixx="0.00412290319487172"
+        ixy="-4.4721906231322E-06"
+        ixz="0.000179402901402881"
+        iyy="0.0040165965070686"
+        iyz="-5.36143216982649E-06"
+        izz="0.00395045055237545" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/yaw_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.909803921568627 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://head/meshes/yaw_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="axis3"
+    type="revolute">
+    <origin
+      xyz="0 0 0.082"
+      rpy="0 0 0" />
+    <parent
+      link="roll_Link" />
+    <child
+      link="yaw_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.65"
+      upper="1.65"
+      effort="0"
+      velocity="0" />
+  </joint>
+</robot>

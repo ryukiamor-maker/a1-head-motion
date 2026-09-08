@@ -1,0 +1,197 @@
+"use client";
+
+import * as React from "react";
+import * as THREE from "three";
+import URDFLoader, { type URDFRobot } from "urdf-loader";
+
+import {
+  useToolcraftDispatch,
+  useToolcraftEvaluatedValues,
+  useToolcraftProductSceneFrame,
+} from "@/toolcraft/runtime/react";
+
+import styles from "./robot-head-canvas.module.css";
+import {
+  applyRobotHeadValues,
+  registerRobotHeadSurface,
+  updateRobotHeadLiveValues,
+} from "./robot-head-renderer";
+import {
+  getUrdfSource,
+  resolveUploadedUrdfUrl,
+  subscribeUrdfSource,
+} from "./urdf-source-store";
+
+function disposeObject(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    mesh.geometry?.dispose?.();
+    const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
+    materials.forEach((material) => material.dispose());
+  });
+}
+
+export function RobotHeadCanvas(): React.JSX.Element | null {
+  const frame = useToolcraftProductSceneFrame();
+  const dispatch = useToolcraftDispatch();
+  const values = useToolcraftEvaluatedValues();
+  const source = React.useSyncExternalStore(subscribeUrdfSource, getUrdfSource, getUrdfSource);
+  const hostRef = React.useRef<HTMLDivElement>(null);
+  const robotRef = React.useRef<URDFRobot | null>(null);
+  const sceneRef = React.useRef<THREE.Scene | null>(null);
+  const cameraRef = React.useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = React.useRef<THREE.WebGLRenderer | null>(null);
+  const [status, setStatus] = React.useState("正在载入默认 head URDF…");
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    dispatch({ target: "panels.timeline.visible", type: "controls.setValue", value: true });
+    dispatch({ target: "panels.timeline.extended", type: "controls.setValue", value: true });
+    dispatch({ expanded: true, type: "timeline.setExpanded" });
+  }, [dispatch]);
+
+  React.useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x080b12, 5.5, 10);
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
+    camera.up.set(0, 0, 1);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    renderer.domElement.className = styles.canvas;
+    renderer.domElement.dataset.slot = "robot-head-webgl-canvas";
+    host.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xdbeafe, 0x111827, 2.25));
+    const key = new THREE.DirectionalLight(0xffffff, 4.25);
+    key.position.set(3, -4, 6);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x60a5fa, 3);
+    rim.position.set(-4, 3, 2);
+    scene.add(rim);
+    const grid = new THREE.GridHelper(5, 20, 0x334155, 0x1e293b);
+    grid.rotation.x = Math.PI / 2;
+    grid.position.z = -1.15;
+    scene.add(grid);
+
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    rendererRef.current = renderer;
+    const unregisterSurface = registerRobotHeadSurface({
+      camera,
+      getRobot: () => robotRef.current,
+      getViewportSize: () => ({ height: host.clientHeight, width: host.clientWidth }),
+      renderer,
+      scene,
+    });
+
+    const resize = () => {
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(host);
+    resize();
+    let animationFrame = 0;
+    const render = () => {
+      renderer.render(scene, camera);
+      animationFrame = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      unregisterSurface();
+      observer.disconnect();
+      if (robotRef.current) disposeObject(robotRef.current);
+      robotRef.current = null;
+      renderer.dispose();
+      renderer.domElement.remove();
+      rendererRef.current = null;
+      cameraRef.current = null;
+      sceneRef.current = null;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    let cancelled = false;
+    const previous = robotRef.current;
+    if (previous) {
+      scene.remove(previous);
+      disposeObject(previous);
+      robotRef.current = null;
+    }
+    setError(false);
+    setStatus(`正在载入 ${source.name}…`);
+
+    const load = async () => {
+      try {
+        const manager = new THREE.LoadingManager();
+        if (source.kind === "uploaded" && source.filesByPath) {
+          manager.setURLModifier((url) => resolveUploadedUrdfUrl(url, source.filesByPath!));
+        }
+        const loader = new URDFLoader(manager);
+        loader.packages = source.kind === "bundled" ? { head: "/head" } : { head: "local://head" };
+        const text = source.urdfText ?? await fetch("/head/urdf/head.urdf").then((response) => {
+          if (!response.ok) throw new Error(`默认 URDF 请求失败 (${response.status})`);
+          return response.text();
+        });
+        if (!text) throw new Error("URDF 文件内容为空。");
+        if (cancelled) return;
+        const robot = loader.parse(text, source.kind === "bundled" ? "/head/urdf/" : "");
+        robot.rotation.set(0, 0, 0);
+        scene.add(robot);
+        robotRef.current = robot;
+
+        let fitted = false;
+        const fit = () => {
+          if (cancelled || fitted || robotRef.current !== robot) return;
+          const box = new THREE.Box3().setFromObject(robot);
+          if (!box.isEmpty()) {
+            fitted = true;
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const scale = 1.6 / Math.max(size.x, size.y, size.z, 0.001);
+            robot.userData.fitCenter = center.clone();
+            robot.userData.fitScale = scale;
+            const camera = cameraRef.current;
+            if (camera) applyRobotHeadValues(robot, camera, values);
+          }
+          setStatus(`${source.name} · ${Object.keys(robot.joints).length} 个关节 · 文件夹模型已载入`);
+        };
+        manager.onLoad = fit;
+        window.setTimeout(fit, 80);
+      } catch (reason) {
+        if (cancelled) return;
+        setError(true);
+        setStatus(reason instanceof Error ? reason.message : "URDF 模型载入失败。");
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [source]);
+
+  React.useEffect(() => {
+    updateRobotHeadLiveValues(values);
+    const camera = cameraRef.current;
+    if (!camera) return;
+    applyRobotHeadValues(robotRef.current, camera, values);
+  }, [values]);
+
+  if (frame.kind !== "ready") return null;
+  return (
+    <div className={styles.surface} ref={hostRef}>
+      <p className={`${styles.status} ${error ? styles.error : ""}`}>{status}</p>
+    </div>
+  );
+}

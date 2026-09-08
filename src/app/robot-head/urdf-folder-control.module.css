@@ -1,0 +1,19 @@
+.control {
+  display: grid;
+  gap: 8px;
+}
+
+.summary,
+.message {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -11,6 +11,12 @@ import { loadToolcraftRendererVitePlugins } from "./scripts/toolcraft-renderer-v
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const toolcraftServerIdentityPath = "/.toolcraft/server-identity.json";
 const testDependencyRoot = process.env.TOOLCRAFT_TEST_DEPENDENCY_ROOT;
+const gitHubRepositoryName = process.env.GITHUB_REPOSITORY?.split("/").at(-1);
+const gitHubPagesBase = gitHubRepositoryName
+  ? gitHubRepositoryName.endsWith(".github.io")
+    ? "/"
+    : `/${gitHubRepositoryName}/`
+  : "/";
 
 function readHtmlAppTitle(source: string): string | null {
   const appTitleMeta = source
@@ -63,6 +69,7 @@ function toolcraftServerIdentityPlugin(): Plugin {
 }
 
 export default defineConfig(async () => ({
+  base: process.env.GITHUB_ACTIONS === "true" ? gitHubPagesBase : "/",
   plugins: [
     ...(await loadToolcraftRendererVitePlugins({ appRoot: rootDir })),
     toolcraftServerIdentityPlugin(),

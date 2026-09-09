@@ -167,19 +167,28 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
 
     const load = async () => {
       try {
+        const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
+        const bundledHeadUrl = new URL("head/", appBaseUrl);
+        const bundledUrdfUrl = new URL("head/urdf/head.urdf", appBaseUrl);
+        const bundledUrdfDirectoryUrl = new URL("head/urdf/", appBaseUrl);
         const manager = new THREE.LoadingManager();
         if (source.kind === "uploaded" && source.filesByPath) {
           manager.setURLModifier((url) => resolveUploadedUrdfUrl(url, source.filesByPath!));
         }
         const loader = new URDFLoader(manager);
-        loader.packages = source.kind === "bundled" ? { head: "/head" } : { head: "local://head" };
-        const text = source.urdfText ?? await fetch("/head/urdf/head.urdf").then((response) => {
+        loader.packages = source.kind === "bundled"
+          ? { head: bundledHeadUrl.href.replace(/\/$/, "") }
+          : { head: "local://head" };
+        const text = source.urdfText ?? await fetch(bundledUrdfUrl).then((response) => {
           if (!response.ok) throw new Error(`默认 URDF 请求失败 (${response.status})`);
           return response.text();
         });
         if (!text) throw new Error("URDF 文件内容为空。");
         if (cancelled) return;
-        const robot = loader.parse(text, source.kind === "bundled" ? "/head/urdf/" : "");
+        const robot = loader.parse(
+          text,
+          source.kind === "bundled" ? bundledUrdfDirectoryUrl.href : "",
+        );
         robot.rotation.set(0, 0, 0);
         scene.add(robot);
         robotRef.current = robot;

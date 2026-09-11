@@ -31,6 +31,41 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ## Decision Trail
 
+### Iteration 5 — Tracking gain, output limits, and continuous recording
+
+- Request: 增加手动调整映射的选项以及最大限度，能够自由设置，手动调整效果；修复追踪只有第一下有关键帧的问题。
+- Task type: Later focused product feature and timeline recording bug fix.
+- User-visible result: 新增“捕捉映射” section with overall sensitivity plus independent Pitch / Roll / Yaw maximum angle sliders. Values persist in runtime state and take effect on the live model without restarting the camera. Recording now uses the current sample elapsed time for every upsert, so each sample creates/updates its own timeline position instead of overwriting the first frame.
+- Decision: Keep camera capture transient, read mapping controls through `ToolcraftState.values`, apply exponential smoothing without attenuating the eventual angle, scale each neutral-relative Euler delta before per-axis clamping, and pass elapsed seconds directly to `timeline.upsertControlKeyframe`.
+- Verification: TypeScript and production Vite build passed. Browser verification showed adjustable mapping controls, `停止录制` while active, and all three motion controls displaying enabled keyframe toggles after a multi-sample recording.
+- Performance intent: ordinary-product-work.
+
+### Iteration 4 — Camera stream lifecycle fix
+
+- Request: 修复启动摄像头后没有内容并立即自动关闭的问题。
+- Task type: Later focused bug fix in the camera custom control.
+- User-visible result: Camera resources are now released only when the control unmounts or the user presses 停止. Runtime value updates such as smoothing changes no longer stop an active stream.
+- Root cause: The cleanup effect depended on the `stop` callback, whose identity changed whenever the persisted tracking value changed; React therefore ran cleanup during normal re-renders.
+- Decision: Use a stable unmount-only cleanup effect and keep the explicit `stop` callback for the user action.
+- Verification: TypeScript check and production Vite build passed. In the local browser, clicking 启动 now remains at `追踪中 · 请正对摄像头` and updates YAW/PITCH/ROLL readouts after several seconds.
+- Performance intent: ordinary-product-work.
+
+### Iteration 3 — Camera head-pose capture
+
+- Request: Add webcam-based human head pose capture to the existing a1-head-motion editor, with live control and recorded animation output.
+- Task type: Later product feature, custom control, renderer input, timeline keyframes, and browser media permission.
+- User-visible result: The 三自由度动作 section now exposes 人头姿态捕捉. It loads MediaPipe Face Landmarker on demand, previews the camera, calibrates the neutral pose, maps roll/pitch/yaw to the existing URDF joints, applies smoothing, and records samples into the existing Toolcraft keyframe timeline. Existing image, video, and GIF export paths remain the output owners.
+- Source/reference checked: The a1-head-motion Toolcraft app, `src/app/robot-head/robot-head-canvas.tsx`, `robot-head-renderer.ts`, the runtime timeline command union, and the official MediaPipe Face Landmarker web API.
+- Docs/contracts read: `workflow.md`, `core/runtime-boundary.md`, `core/control-selection.md`, `core/layout.md`, `core/timeline-animation.md`, `core/performance.md`, and the custom-control/component contracts.
+- View interaction intent: Existing `orbit` view and `view.orbit` orientation gizmo remain the camera inspection owner; webcam pose is a complementary input for robot joint motion.
+- Interaction ownership: The panel owns camera permission, calibration, smoothing, start/stop, and recording. The timeline owns playback and keyframe editing. The canvas remains the product output and orbit surface.
+- Decision: Use the supported `controlRenderers` extension with `@mediapipe/tasks-vision` and runtime commands. Keep camera streams and detector instances transient; persist only the serializable enabled/smoothing settings. Use `timeline.upsertControlKeyframe` for the three existing motion targets and runtime timeline duration/current-time commands during recording.
+- Alternatives rejected: A second hand-built timeline, product-owned download/export code, server-side video upload, and a custom Three.js pose pipeline.
+- State/output mapping: MediaPipe facial transformation matrices become radians in `motion.pitch`, `motion.roll`, and `motion.yaw`; runtime evaluated values continue to drive the retained URDF scene and all existing export paths.
+- Performance intent: ordinary-product-work.
+- Verification: `pnpm exec tsc --noEmit` and `pnpm build` passed. Camera permission, model download, and live pose quality require browser verification with an available webcam.
+- Risks: MediaPipe WASM and model files are fetched from jsDelivr/Google Storage on first use; long offline video ingestion should move detection to a Web Worker before adding file-based batch processing.
+
 ### Product iteration — Robot head URDF motion authoring
 
 - Request: Replace DialKit UI with Toolcraft, use `gkjohnson/urdf-loaders`, load the supplied `head` folder by default, accept folders rather than one GLB, and expose the link lengths and lower/upper joint limits shown in the supplied image.

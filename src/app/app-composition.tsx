@@ -3,6 +3,7 @@ import type { ToolcraftAppComposition } from "@/toolcraft/runtime/react";
 import { appSchema } from "./app-schema";
 import { RobotHeadCanvas } from "./robot-head/robot-head-canvas";
 import { UrdfFolderControl } from "./robot-head/urdf-folder-control";
+import { HeadTrackingControl } from "./robot-head/head-tracking-control";
 import {
   exportRobotHeadGif,
   robotHeadExportRenderer,
@@ -10,7 +11,7 @@ import {
 
 export const appComposition: ToolcraftAppComposition = {
   canvasContent: <RobotHeadCanvas />,
-  controlRenderers: { urdfFolder: UrdfFolderControl },
+  controlRenderers: { headTracking: HeadTrackingControl as typeof UrdfFolderControl, urdfFolder: UrdfFolderControl },
   exportRenderer: robotHeadExportRenderer,
   modelPresentation: { mode: "runtime" },
   onPanelAction: async ({ action, reportFeedback, reportProgress, state }) => {

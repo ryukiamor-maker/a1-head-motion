@@ -1,6 +1,6 @@
 import { GIFEncoder, applyPalette, quantize, type GifPalette } from "gifenc";
 import * as THREE from "three";
-import type { URDFRobot } from "urdf-loader";
+import type { URDFJoint, URDFRobot } from "urdf-loader";
 
 import {
   downloadToolcraftArtifact,
@@ -17,7 +17,21 @@ type RobotHeadSurface = {
   getViewportSize: () => { height: number; width: number };
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
+  setRotationCenterMarkersVisible: (visible: boolean) => void;
 };
+
+type JointCenterBaseline = {
+  childPositions: Map<THREE.Object3D, THREE.Vector3>;
+  position: THREE.Vector3;
+};
+
+const jointCenterBaselines = new WeakMap<URDFJoint, JointCenterBaseline>();
+
+const centerTargetSets = [
+  ["geometry.head2PitchCenterX", "geometry.head2PitchCenterY", "geometry.head2PitchCenterZ"],
+  ["geometry.head2RollCenterX", "geometry.head2RollCenterY", "geometry.head2RollCenterZ"],
+  ["geometry.head2YawCenterX", "geometry.head2YawCenterY", "geometry.head2YawCenterZ"],
+] as const;
 
 let activeSurface: RobotHeadSurface | null = null;
 let liveValues: Record<string, unknown> = {};
@@ -31,6 +45,49 @@ function asRange(value: unknown, fallback: readonly [number, number]): [number, 
     : [...fallback];
 }
 
+function getJointCenterBaseline(joint: URDFJoint): JointCenterBaseline {
+  const existing = jointCenterBaselines.get(joint);
+  if (existing) return existing;
+  const baseline = {
+    childPositions: new Map(joint.children.map((child) => [child, child.position.clone()])),
+    position: joint.position.clone(),
+  };
+  jointCenterBaselines.set(joint, baseline);
+  return baseline;
+}
+
+export function getRobotHeadJointCenters(values: Record<string, unknown>): THREE.Vector3[] {
+  const profile = getRobotModelProfile(values["model.variant"]);
+  return profile.centerDefaults.map((fallback, index) => {
+    if (profile.id === "head1") {
+      const originTarget = [
+        "geometry.axis1OriginZ",
+        "geometry.axis2OriginZ",
+        "geometry.axis3OriginZ",
+      ][index];
+      return new THREE.Vector3(0, 0, asNumber(values[originTarget], fallback[2]));
+    }
+    const targets = centerTargetSets[index];
+    return new THREE.Vector3(
+      asNumber(values[targets[0]], fallback[0]),
+      asNumber(values[targets[1]], fallback[1]),
+      asNumber(values[targets[2]], fallback[2]),
+    );
+  });
+}
+
+function applyHead2JointCenter(joint: URDFJoint, center: THREE.Vector3): void {
+  const baseline = getJointCenterBaseline(joint);
+  const offset = center.clone().sub(baseline.position);
+  joint.position.copy(center);
+  if (joint.origPosition) joint.origPosition.copy(center);
+  baseline.childPositions.forEach((position, child) => {
+    child.position.copy(position).sub(offset);
+    child.matrixWorldNeedsUpdate = true;
+  });
+  joint.matrixWorldNeedsUpdate = true;
+}
+
 export function applyRobotHeadValues(
   robot: URDFRobot | null,
   camera: THREE.PerspectiveCamera,
@@ -38,9 +95,10 @@ export function applyRobotHeadValues(
 ): void {
   if (robot) {
     const profile = getRobotModelProfile(values["model.variant"]);
+    const centers = getRobotHeadJointCenters(values);
     const definitions = profile.jointNames.map((joint, index) => ({
       angle: ["motion.pitch", "motion.roll", "motion.yaw"][index],
-      fallbackLimit: profile.limits[index], joint,
+      center: centers[index], fallbackLimit: profile.limits[index], joint,
       length: ["geometry.axis1OriginZ", "geometry.axis2OriginZ", "geometry.axis3OriginZ"][index],
       lengthDefault: profile.originZ[index], limit: ["limits.axis1", "limits.axis2", "limits.axis3"][index],
       sign: profile.axisSigns[index],
@@ -48,17 +106,16 @@ export function applyRobotHeadValues(
     definitions.forEach((definition) => {
       const joint = robot.joints[definition.joint];
       if (!joint) return;
-      const useProfileDefaults = profile.id === "head2";
-      const [lower, upper] = useProfileDefaults
-        ? [...definition.fallbackLimit]
-        : asRange(values[definition.limit], definition.fallbackLimit);
-      const originZ = useProfileDefaults
-        ? definition.lengthDefault
-        : asNumber(values[definition.length], definition.lengthDefault);
+      const [lower, upper] = asRange(values[definition.limit], definition.fallbackLimit);
       joint.limit.lower = Math.min(lower, upper);
       joint.limit.upper = Math.max(lower, upper);
-      joint.position.z = originZ;
-      if (joint.origPosition) joint.origPosition.z = originZ;
+      if (profile.id === "head2") {
+        applyHead2JointCenter(joint, definition.center);
+      } else {
+        const originZ = asNumber(values[definition.length], definition.lengthDefault);
+        joint.position.z = originZ;
+        if (joint.origPosition) joint.origPosition.z = originZ;
+      }
       const requested = asNumber(values[definition.angle], 0);
       robot.setJointValue(definition.joint, Math.min(joint.limit.upper, Math.max(joint.limit.lower, requested * definition.sign)));
     });
@@ -123,6 +180,7 @@ function renderSurface(
   width: number,
   height: number,
 ): void {
+  surface.setRotationCenterMarkersVisible(false);
   surface.renderer.setPixelRatio(1);
   surface.renderer.setSize(width, height, false);
   surface.camera.aspect = width / height;
@@ -136,6 +194,7 @@ function restoreLiveSurface(surface: RobotHeadSurface): void {
   surface.renderer.setSize(Math.max(1, size.width), Math.max(1, size.height), false);
   surface.camera.aspect = Math.max(1, size.width) / Math.max(1, size.height);
   applyRobotHeadValues(surface.getRobot(), surface.camera, liveValues);
+  surface.setRotationCenterMarkersVisible(true);
 }
 
 export const robotHeadExportRenderer: ToolcraftProductExportRenderer = {

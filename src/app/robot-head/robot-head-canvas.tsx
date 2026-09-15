@@ -14,9 +14,11 @@ import {
 import styles from "./robot-head-canvas.module.css";
 import {
   applyRobotHeadValues,
+  getRobotHeadJointCenters,
   registerRobotHeadSurface,
   updateRobotHeadLiveValues,
 } from "./robot-head-renderer";
+import { getRobotModelProfile } from "./model-profiles";
 import {
   getUrdfSource,
   resolveUploadedUrdfUrl,
@@ -32,6 +34,80 @@ function disposeObject(root: THREE.Object3D): void {
   });
 }
 
+type RotationCenterMarker = {
+  centerIndex: number;
+  group: THREE.Group;
+  jointName: string;
+};
+
+const markerAxes = [
+  new THREE.Vector3(0, 1, 0),
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(0, 0, 1),
+] as const;
+const markerColors = [0xef4444, 0x22c55e, 0x3b82f6] as const;
+
+function createRotationCenterMarker(
+  color: number,
+  axis: THREE.Vector3,
+  centerIndex: number,
+  jointName: string,
+): RotationCenterMarker {
+  const group = new THREE.Group();
+  group.name = `rotation-center-${jointName}`;
+  group.userData.rotationCenterMarker = true;
+
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const center = new THREE.Mesh(new THREE.SphereGeometry(0.005, 18, 12), material);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.0015, 8, 32), material);
+  const axisLine = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.0015, 0.045, 10), material);
+  const zAxis = new THREE.Vector3(0, 0, 1);
+  const yAxis = new THREE.Vector3(0, 1, 0);
+  ring.quaternion.setFromUnitVectors(zAxis, axis);
+  axisLine.quaternion.setFromUnitVectors(yAxis, axis);
+  [center, ring, axisLine].forEach((mesh) => {
+    mesh.renderOrder = 20;
+    group.add(mesh);
+  });
+  return { centerIndex, group, jointName };
+}
+
+function createRotationCenterMarkers(robot: URDFRobot): RotationCenterMarker[] {
+  const profile = getRobotModelProfile("head2");
+  return profile.jointNames.flatMap((jointName, index) => {
+    const joint = robot.joints[jointName];
+    if (!joint?.parent) return [];
+    const marker = createRotationCenterMarker(
+      markerColors[index],
+      markerAxes[index],
+      index,
+      jointName,
+    );
+    joint.parent.add(marker.group);
+    return [marker];
+  });
+}
+
+function updateRotationCenterMarkers(
+  robot: URDFRobot | null,
+  markers: RotationCenterMarker[],
+  values: Record<string, unknown>,
+  visible: boolean,
+): void {
+  const profile = getRobotModelProfile(values["model.variant"]);
+  const centers = getRobotHeadJointCenters(values);
+  markers.forEach((marker) => {
+    const joint = robot?.joints[marker.jointName];
+    marker.group.visible = visible && profile.id === "head2" && Boolean(joint);
+    if (joint) marker.group.position.copy(centers[marker.centerIndex]);
+  });
+}
+
 export function RobotHeadCanvas(): React.JSX.Element | null {
   const frame = useToolcraftProductSceneFrame();
   const dispatch = useToolcraftDispatch();
@@ -44,6 +120,8 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   const cameraRef = React.useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = React.useRef<THREE.WebGLRenderer | null>(null);
   const gridRef = React.useRef<THREE.GridHelper | null>(null);
+  const rotationCenterMarkersRef = React.useRef<RotationCenterMarker[]>([]);
+  const rotationCenterMarkersEnabledRef = React.useRef(false);
   const [status, setStatus] = React.useState("正在载入默认 head URDF…");
   const [error, setError] = React.useState(false);
 
@@ -93,6 +171,11 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       getViewportSize: () => ({ height: host.clientHeight, width: host.clientWidth }),
       renderer,
       scene,
+      setRotationCenterMarkersVisible: (visible) => {
+        rotationCenterMarkersRef.current.forEach((marker) => {
+          marker.group.visible = visible && rotationCenterMarkersEnabledRef.current;
+        });
+      },
     });
 
     const resize = () => {
@@ -120,6 +203,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       if (gridRef.current) disposeObject(gridRef.current);
       robotRef.current = null;
       gridRef.current = null;
+      rotationCenterMarkersRef.current = [];
       renderer.dispose();
       renderer.domElement.remove();
       rendererRef.current = null;
@@ -161,6 +245,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       scene.remove(previous);
       disposeObject(previous);
       robotRef.current = null;
+      rotationCenterMarkersRef.current = [];
     }
     setError(false);
     setStatus(`正在载入 ${source.name}…`);
@@ -205,8 +290,18 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
             const scale = 1.6 / Math.max(size.x, size.y, size.z, 0.001);
             robot.userData.fitCenter = center.clone();
             robot.userData.fitScale = scale;
+            rotationCenterMarkersRef.current = createRotationCenterMarkers(robot);
             const camera = cameraRef.current;
-            if (camera) applyRobotHeadValues(robot, camera, values);
+            if (camera) {
+              applyRobotHeadValues(robot, camera, values);
+              rotationCenterMarkersEnabledRef.current = values["model.variant"] === "head2";
+              updateRotationCenterMarkers(
+                robot,
+                rotationCenterMarkersRef.current,
+                values,
+                true,
+              );
+            }
           }
           setStatus(`${source.name} · ${Object.keys(robot.joints).length} 个关节 · 文件夹模型已载入`);
         };
@@ -227,6 +322,13 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     const camera = cameraRef.current;
     if (!camera) return;
     applyRobotHeadValues(robotRef.current, camera, values);
+    rotationCenterMarkersEnabledRef.current = values["model.variant"] === "head2";
+    updateRotationCenterMarkers(
+      robotRef.current,
+      rotationCenterMarkersRef.current,
+      values,
+      true,
+    );
   }, [values]);
 
   if (frame.kind !== "ready") return null;

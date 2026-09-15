@@ -380,6 +380,22 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 - Risk: This template must be replaced with product-specific decisions before final delivery.
 - Risk: A product that selects custom model presentation must mount every declared checked consumer; otherwise runtime reports typed retryable presentation feedback and suppresses only that declared target.
 
+### Iteration — Head2 三轴旋转中心
+- Request: 在 Head2 控制面板中为 Pitch、Roll、Yaw 分别增加可自定义的三维旋转中心，并用不同颜色标注。
+- Task type: Product renderer adaptation, schema controls, model-specific kinematics, and focused verification.
+- User-visible result: 选择 Head2 后显示九个 X/Y/Z 中心滑块；红、绿、蓝辅助标记分别跟随 Pitch、Roll、Yaw，修改中心后关节围绕新中心旋转，Head1 保持原有参数区。
+- Source/reference checked: `public/head2/urdf/head.urdf`、Head2 mesh package、现有 model profile、URDF loader joint hierarchy，以及 Toolcraft section-inventory and applicability contracts。
+- Docs/contracts read: `docs/toolcraft/schema-reference.md`、`docs/toolcraft/core/control-selection.md`、acceptance section-inventory and selector validators。
+- Contract rules applied: Head2 controls are conditional on `model.variant`; each product section has a stable inventory entry and explicit finite-selector role; markers are preview-only and hidden during export.
+- View interaction intent: Colored center markers provide direct spatial feedback while the existing orientation gizmo remains the camera interaction owner.
+- Interaction ownership: Numeric center values belong to the controls panel; marker rendering and joint motion belong to the retained Three.js canvas.
+- Decision: Keep the URDF hierarchy intact, move each Head2 joint to the requested center, compensate its direct child link at zero pose, then apply the joint angle so geometry does not jump when centers change.
+- Alternatives rejected: Rebuilding the URDF for every slider update, changing mesh vertices, or using DOM overlays that would drift from the rendered model and export surface.
+- State/output mapping: `geometry.head2*Center{X,Y,Z}` values flow through canonical Toolcraft state into joint transforms and marker positions; export evaluates the same values and suppresses markers.
+- Performance intent: ordinary-product-work; center edits update retained transforms and do not reload meshes.
+- Verification: Head2 renderer unit tests cover independent center reads, zero-pose continuity, and rotation around a custom center; TypeScript check passes. Browser smoke verification was limited by the local Playwright/Chromium setup and remains a residual risk.
+- Risks: Uploaded custom URDF packages still need the profile's `pitch`/`roll`/`yaw` joint names for Head2 center editing; unusual joint hierarchies may require an explicit child-link mapping.
+
 ### Iteration — 内嵌 head1/head2 机械结构适配
 - Request: 直接内嵌 head1 和 head2，在控制面板切换，并让三轴参数按各自机械结构生效。
 - User-visible result: 新增 Head 1 / Head 2 内置模型选择；head2 资源完整内嵌到 `public/head2`。渲染器通过模型配置档绑定 `pitch/roll/yaw` 关节、head2 原点 Z 与限位，并修正 pitch 轴方向；切换模型会重新载入对应 URDF。

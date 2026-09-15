@@ -1,11 +1,12 @@
 declare module "urdf-loader" {
-  import type { LoadingManager, Object3D, Vector3 } from "three";
+  import type { LoadingManager, Object3D, Quaternion, Vector3 } from "three";
 
   export type URDFJoint = Object3D & {
     axis: Vector3;
     ignoreLimits: boolean;
     limit: { effort: number; lower: number; upper: number; velocity: number };
     origPosition: Vector3 | null;
+    origQuaternion: Quaternion | null;
     setJointValue(value: number): boolean;
   };
 

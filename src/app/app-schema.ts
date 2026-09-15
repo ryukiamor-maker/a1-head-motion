@@ -18,6 +18,16 @@ export const appSchema = defineToolcraft({
           id: "source",
           title: "URDF 模型包",
           controls: {
+            variant: {
+              defaultValue: "head1",
+              label: "内置模型",
+              options: [{ label: "Head 1", value: "head1" }, { label: "Head 2", value: "head2" }],
+              orderRole: "mode",
+              performanceReason: "切换预置机械结构并重新绑定三轴关节。",
+              performanceRole: "responsiveness",
+              target: "model.variant",
+              type: "select",
+            },
             folder: {
               defaultValue: { fileCount: 7, kind: "bundled", name: "head" },
               description: "选择包含 URDF 与其 meshes 等依赖文件的完整文件夹。",

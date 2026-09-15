@@ -9,6 +9,7 @@ import {
   type ToolcraftState,
 } from "@/toolcraft/runtime";
 import { readToolcraftOrientationPose } from "@/toolcraft/runtime/react";
+import { getRobotModelProfile } from "./model-profiles";
 
 type RobotHeadSurface = {
   camera: THREE.PerspectiveCamera;
@@ -36,22 +37,30 @@ export function applyRobotHeadValues(
   values: Record<string, unknown>,
 ): void {
   if (robot) {
-    const definitions = [
-      { angle: "motion.pitch", fallbackLimit: [-0.61, 0.61] as const, joint: "axis1", length: "geometry.axis1OriginZ", lengthDefault: 0.028, limit: "limits.axis1" },
-      { angle: "motion.roll", fallbackLimit: [-0.52, 0.52] as const, joint: "axis2", length: "geometry.axis2OriginZ", lengthDefault: 0.048, limit: "limits.axis2" },
-      { angle: "motion.yaw", fallbackLimit: [-1.65, 1.65] as const, joint: "axis3", length: "geometry.axis3OriginZ", lengthDefault: 0.082, limit: "limits.axis3" },
-    ];
+    const profile = getRobotModelProfile(values["model.variant"]);
+    const definitions = profile.jointNames.map((joint, index) => ({
+      angle: ["motion.pitch", "motion.roll", "motion.yaw"][index],
+      fallbackLimit: profile.limits[index], joint,
+      length: ["geometry.axis1OriginZ", "geometry.axis2OriginZ", "geometry.axis3OriginZ"][index],
+      lengthDefault: profile.originZ[index], limit: ["limits.axis1", "limits.axis2", "limits.axis3"][index],
+      sign: profile.axisSigns[index],
+     }));
     definitions.forEach((definition) => {
       const joint = robot.joints[definition.joint];
       if (!joint) return;
-      const [lower, upper] = asRange(values[definition.limit], definition.fallbackLimit);
-      const originZ = asNumber(values[definition.length], definition.lengthDefault);
+      const useProfileDefaults = profile.id === "head2";
+      const [lower, upper] = useProfileDefaults
+        ? [...definition.fallbackLimit]
+        : asRange(values[definition.limit], definition.fallbackLimit);
+      const originZ = useProfileDefaults
+        ? definition.lengthDefault
+        : asNumber(values[definition.length], definition.lengthDefault);
       joint.limit.lower = Math.min(lower, upper);
       joint.limit.upper = Math.max(lower, upper);
       joint.position.z = originZ;
       if (joint.origPosition) joint.origPosition.z = originZ;
       const requested = asNumber(values[definition.angle], 0);
-      robot.setJointValue(definition.joint, Math.min(joint.limit.upper, Math.max(joint.limit.lower, requested)));
+      robot.setJointValue(definition.joint, Math.min(joint.limit.upper, Math.max(joint.limit.lower, requested * definition.sign)));
     });
 
     const fitScale = asNumber(robot.userData.fitScale, 1);
@@ -198,3 +207,7 @@ export async function exportRobotHeadGif(
     restoreLiveSurface(surface);
   }
 }
+
+
+
+

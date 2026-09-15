@@ -168,9 +168,10 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     const load = async () => {
       try {
         const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
-        const bundledHeadUrl = new URL("head/", appBaseUrl);
-        const bundledUrdfUrl = new URL("head/urdf/head.urdf", appBaseUrl);
-        const bundledUrdfDirectoryUrl = new URL("head/urdf/", appBaseUrl);
+        const modelDir = values["model.variant"] === "head2" ? "head2" : "head";
+        const bundledHeadUrl = new URL(`${modelDir}/`, appBaseUrl);
+        const bundledUrdfUrl = new URL(`${modelDir}/urdf/head.urdf`, appBaseUrl);
+        const bundledUrdfDirectoryUrl = new URL(`${modelDir}/urdf/`, appBaseUrl);
         const manager = new THREE.LoadingManager();
         if (source.kind === "uploaded" && source.filesByPath) {
           manager.setURLModifier((url) => resolveUploadedUrdfUrl(url, source.filesByPath!));
@@ -219,7 +220,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     };
     void load();
     return () => { cancelled = true; };
-  }, [source]);
+  }, [source, values["model.variant"]]);
 
   React.useEffect(() => {
     updateRobotHeadLiveValues(values);

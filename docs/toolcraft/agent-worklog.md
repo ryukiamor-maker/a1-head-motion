@@ -379,3 +379,10 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 
 - Risk: This template must be replaced with product-specific decisions before final delivery.
 - Risk: A product that selects custom model presentation must mount every declared checked consumer; otherwise runtime reports typed retryable presentation feedback and suppresses only that declared target.
+
+### Iteration — 内嵌 head1/head2 机械结构适配
+- Request: 直接内嵌 head1 和 head2，在控制面板切换，并让三轴参数按各自机械结构生效。
+- User-visible result: 新增 Head 1 / Head 2 内置模型选择；head2 资源完整内嵌到 `public/head2`。渲染器通过模型配置档绑定 `pitch/roll/yaw` 关节、head2 原点 Z 与限位，并修正 pitch 轴方向；切换模型会重新载入对应 URDF。
+- Decision: 保留 Pitch/Roll/Yaw 的统一动作目标与时间轴，使用 profile 映射解决不同 URDF 关节命名和机械轴向差异。
+- Verification: `node_modules/.bin/tsc --noEmit --pretty false` 通过。Vite/pnpm 构建受环境的 pnpm ignored build scripts（esbuild）阻塞，未修改应用逻辑。
+- Risks: 上传自定义 URDF 仍需使用 axis1/axis2/axis3 命名才能沿用 head1 参数档；后续可增加上传包自动识别与参数档编辑。

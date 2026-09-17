@@ -73,4 +73,20 @@ describe("continuous interaction demo", () => {
       expect(Math.max(...excursion)).toBeGreaterThan(0.02);
     });
   });
+
+  it("carries velocity through intermediate poses instead of stopping at every key", () => {
+    const { result } = makeDemo();
+    let flowingKeys = 0;
+    for (const group of result.timeline.keyframeGroups) {
+      for (const key of group.keyframes.slice(1, -1)) {
+        const t = key.timeSeconds;
+        const sample = (time: number) => Number(evaluateToolcraftTimelineValue(result, group.controlId, time));
+        const left = (sample(t) - sample(t - 0.001)) / 0.001;
+        const right = (sample(t + 0.001) - sample(t)) / 0.001;
+        expect(Math.abs(left - right)).toBeLessThan(0.025);
+        if (Math.abs(left) > 0.01 && Math.abs(right) > 0.01) flowingKeys++;
+      }
+    }
+    expect(flowingKeys).toBeGreaterThan(35);
+  });
 });

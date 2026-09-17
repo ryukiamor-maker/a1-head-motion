@@ -13,7 +13,10 @@ async function pause(page: Page) {
 async function scrub(page: Page, seconds: number) {
   const slider = page.getByRole("slider", { name: "Playback position" });
   await slider.press("Home");
-  for (let i = 0; i < seconds * 4; i++) await slider.press("ArrowRight");
+  for (let i = 0; i < seconds * 4; i++) {
+    await slider.press("ArrowRight");
+    await expect(slider).toHaveAttribute("aria-valuenow", String((i + 1) / 4));
+  }
   await expect(slider).toHaveAttribute("aria-valuenow", String(seconds));
 }
 
@@ -22,8 +25,8 @@ test("browser: complete interaction demo generates and animates all three axes",
   await expect(page.locator(canvas)).toBeVisible();
   await pause(page);
   const session = await createToolcraftBrowserProofSession(page);
-  await expectToolcraftProductObservableToChange(session, session.controlAction("motion.demo", async (control) => {
-    await control.getByRole("button", { name: "生成完整演示" }).click();
+  await expectToolcraftProductObservableToChange(session, session.targetAction("motion.demo", async () => {
+    await page.getByRole("button", { name: "生成完整演示" }).click();
     await expect(page.getByRole("button", { name: "Pause playback", exact: true })).toBeVisible();
     await pause(page);
     await scrub(page, 6);
@@ -55,8 +58,8 @@ test("browser: interaction amplitude changes the generated pose", async ({ page 
   await pause(page);
   await scrub(page, 6);
   const session = await createToolcraftBrowserProofSession(page);
-  await expectToolcraftProductObservableToChange(session, session.controlAction("motion.demoIntensity", async (control) => {
-    await control.getByRole("slider").press("Home");
+  await expectToolcraftProductObservableToChange(session, session.targetAction("motion.demoIntensity", async () => {
+    await page.getByRole("slider", { name: "表现幅度", exact: true }).press("Home");
     await page.getByRole("button", { name: "生成完整演示" }).click();
     await pause(page);
     await scrub(page, 6);

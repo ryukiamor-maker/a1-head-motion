@@ -439,3 +439,23 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 - Decision: 保留 Pitch/Roll/Yaw 的统一动作目标与时间轴，使用 profile 映射解决不同 URDF 关节命名和机械轴向差异。
 - Verification: `node_modules/.bin/tsc --noEmit --pretty false` 通过。Vite/pnpm 构建受环境的 pnpm ignored build scripts（esbuild）阻塞，未修改应用逻辑。
 - Risks: 上传自定义 URDF 仍需使用 axis1/axis2/axis3 命名才能沿用 head1 参数档；后续可增加上传包自动识别与参数档编辑。
+
+### Iteration — 60 秒连续交互与自然动作修正
+- Request: “目前只有roll且静止不动”；“太机械化了，能不能再灵动一点，像真人一些”。延续单参数生成、三轴联动、参考常见测试动作并连续播放的要求。
+- Task type: Existing product behavior and timeline authoring; focused functional checks only.
+- User-visible result: 三自由度动作内增加表现幅度和生成完整演示；一键替换时间轴、生成三条轨道并播放 60 秒，结束回正。摄像头关闭时姿态读数显示当前动画角度。
+- Source/reference checked: 原参考视频与已提取画面/转录、settings-transfer.ts、runtime timeline commands/evaluator、Head1/Head2 model profiles、当前浏览器旧 Roll 轨道。
+- Reference inputs: C:/Users/geneliu/Desktop/视频/完整版.mp4；前 5:38 的交互动作分析以及后半段每 20 秒接触表用于动作类别与结构讨论；未声称逐帧复现。额外裁出 02:44–02:51 原视频片段尝试保护的 motion-reference preprocessing。
+- Docs/contracts read: workflow; core timeline-animation, reference-study, control-selection, layout, performance; schema-reference; component-rules; decision-contract; acceptance-testing.
+- Contract rules applied: app-owned commands, evaluated timeline values, built-in actions/slider, runtime playback/export ownership; no signed runtime edits.
+- View interaction intent: 保留当前模型与相机视角，使用现有轨道和画布检查姿态。
+- Interaction ownership: 面板生成完整动作；顶部时间轴负责播放、暂停、定位和重播。
+- Decision: Settings Import does not restore keyframeGroups. Generate through supported timeline commands instead. Clear stale tracks, keep fixed mechanical settings, write independent Pitch/Roll/Yaw timing, stop at 60s. Clear selected keyframe after generation so arrow keys scrub rather than edit the final key.
+- Animation Intent Inventory: Timeline-keyframes; 14 interaction phases across 60 seconds; one-shot playback, optional existing loop; same evaluated values drive preview and existing export.
+- Naturalness decision: Shape-preserving Hermite tangents encoded as per-segment Bézier easing carry velocity through intermediate poses. Reduce extreme tilts/shakes, use unequal nods, stagger axes, soften happy greeting and preserve small listening/sadness adjustments. Motion is authored animation, not captured human biomechanics.
+- Alternatives rejected: Imported settings pretending to restore animation, renderer-local autoplay, duplicated transport, synchronous sinusoidal axis oscillation, whole-base translation.
+- State/output mapping: motion.demoIntensity scales generated radian angles; motion.demo dispatches timeline commands; motion.pitch/roll/yaw are evaluated by the existing renderer. Model, geometry, limits, camera remain fixed during the take.
+- Performance intent: ordinary-product-work. Fixed key count, retained renderer unchanged; no measured performance run.
+- Verification: Focused sequence tests cover stale-track replacement, three animated axes, limits, every chapter, intensity, neutral finish, idempotence, and velocity continuity. TypeScript passes. In-app browser verified three rows, changed head pixels, playing time, and automatic stop at 60s. Protected feature runner is blocked before execution by pre-existing playwright.config.ts signed-authority mismatch; separate focused Playwright scenarios are being diagnosed without altering protected config.
+- Risks: The protected reference-study command fails on this Windows environment: full-video inspection capture limit, seven-second contact sheet ENAMETOOLONG, two-second publication directory rename EPERM. No generated reference evidence or reference-parity claim is fabricated. Settings export still does not include full keyframe tracks; locally persisted timeline and the built-in generator are the replay path. Current joint limits can clamp generated gestures if the user narrows them.
+- Final focused verification: 4 sequence unit tests pass; TypeScript passes; in-app browser shows changing three-axis readouts/model output, neutral finish at 60s, and no console errors. Standalone Playwright scenarios still exceed their 30-second budget in browser interactions/raster capture; automated browser acceptance is not claimed as passed. Protected feature runner also remains blocked by its existing signed-config mismatch.

@@ -12,12 +12,17 @@ async function pause(page: Page) {
 
 async function scrub(page: Page, seconds: number) {
   const slider = page.getByRole("slider", { name: "Playback position" });
+  await slider.press("Escape");
   await slider.press("Home");
-  for (let i = 0; i < seconds * 4; i++) {
-    await slider.press("ArrowRight");
-    await expect(slider).toHaveAttribute("aria-valuenow", String((i + 1) / 4));
-  }
-  await expect(slider).toHaveAttribute("aria-valuenow", String(seconds));
+  const bounds = await slider.boundingBox();
+  if (!bounds) throw new Error("Timeline scrubber is not visible");
+  const start = Number(await slider.getAttribute("data-timeline-track-start"));
+  const end = Number(await slider.getAttribute("data-timeline-track-end"));
+  await page.mouse.move(bounds.x + start, bounds.y + 1);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + start + (bounds.width - start - end) * seconds / 60, bounds.y + 1);
+  await page.mouse.up();
+  await expect.poll(async () => Math.abs(Number(await slider.getAttribute("aria-valuenow")) - seconds)).toBeLessThan(0.15);
 }
 
 test("browser: complete interaction demo generates and animates all three axes", async ({ page }) => {

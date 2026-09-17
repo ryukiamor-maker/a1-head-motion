@@ -5,6 +5,7 @@ import type { URDFJoint, URDFRobot } from "urdf-loader";
 import {
   downloadToolcraftArtifact,
   evaluateToolcraftTimelineValues,
+  getToolcraftVideoExportSize,
   type ToolcraftProductExportRenderer,
   type ToolcraftState,
 } from "@/toolcraft/runtime";
@@ -17,7 +18,7 @@ type RobotHeadSurface = {
   getViewportSize: () => { height: number; width: number };
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
-  setRotationCenterMarkersVisible: (visible: boolean) => void;
+  updateRotationCenterMarkers: (values: Record<string, unknown>, visible: boolean) => void;
 };
 
 type JointCenterBaseline = {
@@ -109,13 +110,17 @@ export function applyRobotHeadValues(
       const [lower, upper] = asRange(values[definition.limit], definition.fallbackLimit);
       joint.limit.lower = Math.min(lower, upper);
       joint.limit.upper = Math.max(lower, upper);
-      if (profile.id === "head2") {
+      if (profile.id === "head2" || profile.id === "head3") {
         applyHead2JointCenter(joint, definition.center);
       } else {
         const originZ = asNumber(values[definition.length], definition.lengthDefault);
         joint.position.z = originZ;
         if (joint.origPosition) joint.origPosition.z = originZ;
       }
+    });
+    definitions.forEach((definition) => {
+      const joint = robot.joints[definition.joint];
+      if (!joint) return;
       const requested = asNumber(values[definition.angle], 0);
       robot.setJointValue(definition.joint, Math.min(joint.limit.upper, Math.max(joint.limit.lower, requested * definition.sign)));
     });
@@ -179,8 +184,9 @@ function renderSurface(
   values: Record<string, unknown>,
   width: number,
   height: number,
+  includeRotationCenters = false,
 ): void {
-  surface.setRotationCenterMarkersVisible(false);
+  surface.updateRotationCenterMarkers(values, includeRotationCenters);
   surface.renderer.setPixelRatio(1);
   surface.renderer.setSize(width, height, false);
   surface.camera.aspect = width / height;
@@ -194,7 +200,24 @@ function restoreLiveSurface(surface: RobotHeadSurface): void {
   surface.renderer.setSize(Math.max(1, size.width), Math.max(1, size.height), false);
   surface.camera.aspect = Math.max(1, size.width) / Math.max(1, size.height);
   applyRobotHeadValues(surface.getRobot(), surface.camera, liveValues);
-  surface.setRotationCenterMarkersVisible(true);
+  surface.updateRotationCenterMarkers(liveValues, true);
+}
+
+export function shouldIncludeRotationCenterMarkers(
+  frame: { height: number; width: number },
+  pixelRatio: number,
+  state: ToolcraftState,
+): boolean {
+  if (state.values["export.video.includeRotationCenters"] !== true) return false;
+  const videoSize = getToolcraftVideoExportSize({
+    frame: { height: frame.height, width: frame.width, x: 0, y: 0 },
+    resolution: String(state.values["export.video.resolution"] ?? "current"),
+    state,
+  });
+  const renderedWidth = Math.max(1, Math.round(frame.width * pixelRatio));
+  const renderedHeight = Math.max(1, Math.round(frame.height * pixelRatio));
+  return Math.abs(renderedWidth - videoSize.width) <= 1
+    && Math.abs(renderedHeight - videoSize.height) <= 1;
 }
 
 export const robotHeadExportRenderer: ToolcraftProductExportRenderer = {
@@ -204,7 +227,13 @@ export const robotHeadExportRenderer: ToolcraftProductExportRenderer = {
     const width = Math.max(1, Math.round(frame.width * pixelRatio));
     const height = Math.max(1, Math.round(frame.height * pixelRatio));
     try {
-      renderSurface(surface, evaluateToolcraftTimelineValues(state, timeSeconds), width, height);
+      renderSurface(
+        surface,
+        evaluateToolcraftTimelineValues(state, timeSeconds),
+        width,
+        height,
+        shouldIncludeRotationCenterMarkers(frame, pixelRatio, state as ToolcraftState),
+      );
       context.drawImage(surface.renderer.domElement, frame.x, frame.y, frame.width, frame.height);
     } finally {
       restoreLiveSurface(surface);
@@ -239,7 +268,13 @@ export async function exportRobotHeadGif(
     for (let index = 0; index < frameCount; index += 1) {
       const timeSeconds = Math.min(duration, index / fps);
       const values = evaluateToolcraftTimelineValues(state, timeSeconds);
-      renderSurface(surface, values, width, height);
+      renderSurface(
+        surface,
+        values,
+        width,
+        height,
+        state.values["export.video.includeRotationCenters"] === true,
+      );
       const raw = new Uint8Array(width * height * 4);
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, raw);
       const pixels = flipPixelsVertically(raw, width, height);

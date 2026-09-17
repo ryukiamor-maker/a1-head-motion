@@ -70,6 +70,32 @@ export const appProductReadiness: ToolcraftProductReadiness = {
 export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
   {
     automated: true,
+    automatedTestName: "replaces a stale single-axis timeline with a complete playing three-axis take",
+    browser: { budget: "standard", file: "e2e/product-interaction-demo.spec.ts", testName: "browser: complete interaction demo generates and animates all three axes" },
+    componentType: "actions",
+    evidence: "product-output",
+    expectedObservable: "The generated 60-second take has moving Pitch, Roll and Yaw tracks, retains mechanical settings and ends at neutral without looping.",
+    fixture: "A stale single Roll track and customized model rotation centers",
+    id: "motion.demo",
+    kind: "control",
+    target: "motion.demo",
+    userAction: "Click 生成完整演示, observe playback, pause and inspect poses on the timeline.",
+  },
+  {
+    automated: true,
+    automatedTestName: "scales the complete take without changing its timing or fixed model parameters",
+    browser: { budget: "standard", file: "e2e/product-interaction-demo.spec.ts", testName: "browser: interaction amplitude changes the generated pose" },
+    componentType: "slider",
+    evidence: "product-output",
+    expectedObservable: "Changing amplitude then regenerating changes the head excursion at the same timeline time.",
+    fixture: "Full and half-amplitude interaction takes",
+    id: "motion.demoIntensity",
+    kind: "control",
+    target: "motion.demoIntensity",
+    userAction: "Set 表现幅度 and click 生成完整演示.",
+  },
+  {
+    automated: true,
     automatedTestName:
       "declares production reload coverage for the starter schema",
     browser: {
@@ -115,7 +141,7 @@ export const appControlSectionInventory = [
     finiteSelectors: [],
     groupingReason: "These controls edit the three mapped head joint angles and capture input.",
     id: "motion",
-    targets: ["capture.headTracking", "motion.pitch", "motion.roll", "motion.yaw"],
+    targets: ["motion.demoIntensity", "motion.demo", "capture.headTracking", "motion.pitch", "motion.roll", "motion.yaw"],
     title: "三自由度动作",
   },
   {
@@ -154,10 +180,10 @@ export const appControlSectionInventory = [
     title: "Link 长度 / Joint Origin Z",
   },
   {
-    entity: "Head2 rotation centers",
+    entity: "Head2 and Head3 rotation centers",
     entityId: "head2-centers",
     finiteSelectors: [],
-    groupingReason: "These nine controls edit the three colored Head2 joint center vectors.",
+    groupingReason: "These nine controls edit the three colored head joint center vectors for Head2 and Head3.",
     id: "head2-centers",
     targets: [
       "geometry.head2PitchCenterX",
@@ -170,7 +196,7 @@ export const appControlSectionInventory = [
       "geometry.head2YawCenterY",
       "geometry.head2YawCenterZ",
     ],
-    title: "Head2 旋转中心",
+    title: "头部旋转中心",
   },
   {
     entity: "Joint angle limits",
@@ -224,10 +250,19 @@ export const appControlSectionInventory = [
         role: "parameter",
         target: "export.video.resolution",
       },
+      {
+        reason: "Rotation-center visibility changes only the exported video and GIF overlay.",
+        role: "parameter",
+        target: "export.video.includeRotationCenters",
+      },
     ],
     groupingReason: "These controls configure one video export.",
     id: "video-export",
-    targets: ["export.video.format", "export.video.resolution"],
+    targets: [
+      "export.video.format",
+      "export.video.resolution",
+      "export.video.includeRotationCenters",
+    ],
     title: "Video Export",
   },
 ] as const satisfies readonly ToolcraftControlSectionInventoryEntry[];

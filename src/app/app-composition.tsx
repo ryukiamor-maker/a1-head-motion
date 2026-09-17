@@ -4,6 +4,7 @@ import { appSchema } from "./app-schema";
 import { RobotHeadCanvas } from "./robot-head/robot-head-canvas";
 import { UrdfFolderControl } from "./robot-head/urdf-folder-control";
 import { HeadTrackingControl } from "./robot-head/head-tracking-control";
+import { createInteractionDemoCommands, INTERACTION_DEMO_ACTION } from "./robot-head/interaction-demo";
 import {
   exportRobotHeadGif,
   robotHeadExportRenderer,
@@ -14,7 +15,11 @@ export const appComposition: ToolcraftAppComposition = {
   controlRenderers: { headTracking: HeadTrackingControl as typeof UrdfFolderControl, urdfFolder: UrdfFolderControl },
   exportRenderer: robotHeadExportRenderer,
   modelPresentation: { mode: "runtime" },
-  onPanelAction: async ({ action, reportFeedback, reportProgress, state }) => {
+  onPanelAction: async ({ action, dispatch, reportFeedback, reportProgress, state }) => {
+    if (action.value === INTERACTION_DEMO_ACTION) {
+      createInteractionDemoCommands(state).forEach(dispatch);
+      return;
+    }
     if (action.value !== "export.gif") return;
     try {
       await exportRobotHeadGif(state, reportProgress);

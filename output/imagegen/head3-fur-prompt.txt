@@ -1,0 +1,10 @@
+Use case: style-transfer
+Asset type: production albedo texture swatch for the UV-mapped reconstructed lower head of an existing 3D character.
+Input images: Image 1 is public/head3/model3-texture.jpg, the original 4096x4096 authored atlas that defines the exact material identity and taupe-brown color. Image 2 is output/imagegen/head3-original-fur-reference.png, a full-resolution crop that defines the exact individual hair width, compact clump scale, density, sharpness, local strand shading, and irregular diagonal flow.
+Primary request: Generate a square, flat, orthographic, edge-to-edge material swatch containing only the same short dense taupe-brown plush fur as the reference. Preserve crisp individual strands and compact overlapping clumps with subtle irregular direction. Keep contrast restrained and the surface matte. The result will be actually UV-mapped to a 3D lower cranium at source-equivalent texel density.
+Composition: seamless/tileable opposite edges; no central convergence, radial pattern, large-scale bands, or gradients. Use predominantly gently diagonal downward flow with low-frequency meandering.
+Lighting: only the tiny local strand shading already present in the reference; no directional scene light, global shadows, highlights, ambient-occlusion band, or vignette.
+Color palette: match the reference crop's warm taupe-brown exactly; avoid gray, pink, orange, white, or black patches.
+Materials/textures: real fine plush/fleece hairs with the same strand width and density as Image 2; crisp high-frequency detail, no blur, simple noise, painted brush strokes, or cloth weave.
+Constraints: no face, eyes, scarf, clothing, objects, UV outlines, seams, borders, text, logo, watermark, or background. Do not copy the atlas layout. Do not make the smooth white face mask furry. Do not create a starburst, whorl, or obvious repetition.
+Postprocess: preserve ImageGen's strand pixels; scripts/match-head3-fur.py performs only per-channel affine color/contrast matching to the original crop before the asset is used by the runtime and packed Blender project.

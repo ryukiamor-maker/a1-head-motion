@@ -9,6 +9,7 @@ dist-ssr
 .output
 .next
 *.tsbuildinfo
+*.blend1
 
 # Test output
 coverage

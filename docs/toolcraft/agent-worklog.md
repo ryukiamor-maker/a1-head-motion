@@ -31,6 +31,43 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ## Decision Trail
 
+### Iteration 7 — Head1 center annotations, lighter markers, and export visibility
+
+- Request: 为 Head1 增加三轴旋转中心标注；缩小 Head2 的旋转中心标注；增加导出视频时是否显示旋转中心的选项。
+- Task type: Later focused renderer, schema-control, and raster-export refinement (Tier 3).
+- User-visible result: Head1 now shows red/green/blue Pitch/Roll/Yaw center annotations using its `axis1`/`axis2`/`axis3` joints. All three models use shorter, thinner, partially transparent center markers. Video Export adds a built-in `显示旋转中心` switch for MP4/WebM/GIF output; its default is off, and still-image export remains clean at the standard image sizes.
+- Source/reference checked: Current Head1 and Head2 URDF joint names/axes, the retained Three.js marker implementation, the shared Toolcraft image/video export callback, and the live in-app browser rendering for Head1 and Head3.
+- Reference inputs: None; this is a direct refinement of the existing product renderer.
+- Docs/contracts read: `workflow.md`, `core/runtime-boundary.md`, `core/performance.md`, `decision-contract.md`, `core/control-selection.md`, `core/layout.md`, `core/setup-export.md`, `core/media-upload.md`, `renderer-technique.md`, `performance.md`, `component-rules.md`, and `acceptance-testing.md`.
+- Contract rules applied: Keep marker geometry in `canvasContent`, preserve the retained Three.js surface, use the built-in Switch for a boolean export option, keep Video Export directly above the sticky actions, and use later-feature focused functional/browser checks without measured performance.
+- View interaction intent: Existing `orbit` ownership and `view.orbit` orientation gizmo remain unchanged; center markers are non-interactive spatial feedback.
+- Interaction ownership: The panel owns the video-overlay boolean and exact joint-center values. The retained canvas/export renderer owns marker visibility and geometry; no duplicate canvas toggle is added.
+- Decision: Create markers from the active model profile and each loaded joint's real axis. Use sphere radius `0.003`, ring tube/axis radius `0.00065`, axis length `0.032`, and opacity `0.86`. Reuse the same marker visibility switch for MP4/WebM/GIF; image exports remain marker-free for the standard fixed image sizes.
+- Alternatives rejected: Separate Head1-only marker code, DOM labels that drift from the Three.js scene, retaining the original oversized geometry, or a custom export action that bypasses Toolcraft's typed video pipeline.
+- State/output mapping: `model.variant` selects the profile/joint names; existing Head1 origin-Z or Head2/3 XYZ center state positions each marker; `export.video.includeRotationCenters` controls marker visibility during runtime video/GIF frame rendering only.
+- Performance intent: ordinary-product-work. Marker meshes remain retained and the option only changes visibility during export; no measured performance run is authorized.
+- Verification: Focused marker/renderer tests cover Head1 marker creation, the slimmer style, video-sized inclusion, image-sized exclusion, and disabled behavior. TypeScript passes. Manual browser inspection confirms Head1's three markers, the lighter marker treatment, the visible Video Export switch, and its off/on/off state transition.
+- Risks: Toolcraft currently supplies one shared image/video product-frame callback without an artifact-kind field, so typed video detection uses the resolved output size; a custom canvas size exactly matching a fixed image export size can be ambiguous until the runtime exposes artifact kind directly.
+
+### Iteration 6 — Head3 full-body GLB with head-only motion
+
+- Request: 现在需要导入并适配模型3，即上传文件；要求加载渲染整个模型，但只有头部能动，头部的参数和head2保持一致，要有三轴、要能调整三轴旋转中心；其他功能也一并保持。
+- Task type: Later focused product feature, bundled GLB adaptation, retained Three.js renderer, schema branching, and model-specific kinematics.
+- User-visible result: The built-in model selector gains Head 3. Its complete textured GLB remains visible while only the head follows the existing Pitch, Roll, and Yaw motion, tracking, timeline, and export values. Head 3 shares Head2's limits, axis signs, and nine editable XYZ rotation-center controls with the same red, green, and blue markers.
+- Source/reference checked: `C:/Users/geneliu/Downloads/tripo_convert_981cb370-d46a-4c67-978b-5a4b36140263.glb`, its Tripo glTF node/primitive/accessor structure, the existing Head2 URDF hierarchy and profile, and the retained preview/export surface.
+- Docs/contracts read: `workflow.md`, `core/control-selection.md`, `core/layout.md`, `core/runtime-boundary.md`, `core/performance.md`, `schema-reference.md`, `component-rules.md`, `renderer-technique.md`, and `performance.md`.
+- View interaction intent: The existing `orbit` mode and `view.orbit` orientation gizmo remain the view owner. The colored axes are spatial feedback for the panel-authored joint centers.
+- Interaction ownership: The panel owns exact model selection and center values; the retained canvas owns model rendering, head motion, markers, and orbit. The timeline and webcam capture continue to write the existing motion targets.
+- Decision: Preserve original PBR texture and all original triangle area. Separate along a sampled curved scarf lip. Blender 4.5 reconstructs a rounded lower cranium with boundary-matched normals and a pale chin continuing the face mask. Store the editable packed Blender project and bake its completion mesh for the retained editor. Pitch→Roll→Yaw uses compensating link frames and rigid head geometry; no mixed face weights or animated bind inverses.
+- Alternatives rejected: Moving the complete GLB, discarding the body, requiring an unavailable authored skeleton, flattening the texture into fallback material, or creating a second set of Head3 motion parameters.
+- State/output mapping: `model.variant=head3` selects the bundled GLB; `motion.*`, `limits.*`, and `geometry.head2*Center{X,Y,Z}` drive the synthetic head joints; root transform, camera, tracking, timeline, still/video/GIF export, theme, and grid continue through the existing shared renderer.
+- Performance intent: ordinary-product-work. The model is decoded once per selection and motion/center edits update retained transforms without reloading geometry.
+- Verification: Focused profile/rig tests will prove shared defaults, static body transforms, head-only rotation, and center updates. A production build checks the new native buffer loader and bundled reconstructed mesh assets. Browser checks will inspect full textured rendering, axis markers, body stability, head motion, and control applicability.
+- Risks: The supplied Tripo file contains one unrigged mesh, so the neck boundary is inferred from inspected geometry and explicitly excludes the scarf. Future replacement files with a different pose or topology need their own explicit partition metadata.
+
+- Steering: User rejected the stretched skin, exposed flat cap, and gray chin band. Removed skinning and replaced the cap in Blender with a curved, closed lower head; shortened the jaw and continued face color around the underside.
+- Focused verification: Eight rig/camera tests cover shared defaults, rigid geometry, body/scarf invariance, 120 identical pose updates, nine editable pivot coordinates, and preserved source surface area. Browser inspection covers neutral, pitch, yaw, roll and raised chin.
+
 ### Iteration 5 — Tracking gain, output limits, and continuous recording
 
 - Request: 增加手动调整映射的选项以及最大限度，能够自由设置，手动调整效果；修复追踪只有第一下有关键帧的问题。

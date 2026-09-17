@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import type { ToolcraftCustomControlRendererProps } from "@/toolcraft/runtime/react";
+import { useToolcraftEvaluatedValues } from "@/toolcraft/runtime/react";
 import { Button } from "@/toolcraft/ui";
 import styles from "./head-tracking-control.module.css";
 
@@ -18,6 +19,7 @@ function poseFromMatrix(data: ArrayLike<number>): Pose {
 }
 
 export function HeadTrackingControl({ dispatch, setValue, state, value }: ToolcraftCustomControlRendererProps<TrackingValue>): React.JSX.Element {
+  const animatedValues = useToolcraftEvaluatedValues();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
   const trackerRef = React.useRef<FaceLandmarker | null>(null);
@@ -106,10 +108,16 @@ export function HeadTrackingControl({ dispatch, setValue, state, value }: Toolcr
     trackerRef.current = null;
   }, []);
   const currentValue = value ?? { enabled: false, smoothing: 0.7 };
+  const displayedPose = trackerRef.current ? pose : {
+    pitch: Number(animatedValues["motion.pitch"] ?? 0) * DEG,
+    roll: Number(animatedValues["motion.roll"] ?? 0) * DEG,
+    yaw: Number(animatedValues["motion.yaw"] ?? 0) * DEG,
+  };
   return <div className={styles.control} data-slot="head-tracking-control">
     <video ref={videoRef} className={styles.preview} muted playsInline aria-label="摄像头人脸预览" />
     <div className={styles.row}><p className={`${styles.status} ${trackerRef.current ? styles.live : ""}`}>{status}</p><Button size="sm" onClick={() => (trackerRef.current ? stop() : void start())}>{trackerRef.current ? "停止" : "启动"}</Button><Button size="sm" variant={recording ? "destructive" : "outline"} disabled={!trackerRef.current} onClick={() => { const active = !recordingRef.current; recordingRef.current = active; setRecording(active); const now = performance.now(); recordingStartRef.current = now; lastSampleRef.current = now; }}>{recording ? "停止录制" : "录制追踪"}</Button></div>
-    <dl className={styles.readout}>{(["yaw", "pitch", "roll"] as const).map((axis) => <div key={axis}><dt>{axis.toUpperCase()}</dt><dd>{pose[axis].toFixed(1)}°</dd></div>)}</dl>
+    <p className={styles.hint}>{trackerRef.current ? "人头捕捉姿态" : "当前动画姿态"}</p>
+    <dl className={styles.readout}>{(["yaw", "pitch", "roll"] as const).map((axis) => <div key={axis}><dt>{axis.toUpperCase()}</dt><dd>{displayedPose[axis].toFixed(1)}°</dd></div>)}</dl>
     <label className={styles.hint}>平滑 <input className={styles.slider} type="range" min="0" max="0.95" step="0.05" value={currentValue.smoothing} onChange={(event) => setValue({ ...currentValue, smoothing: Number(event.target.value) })} /></label>
     <p className={styles.hint}>录制采样会写入现有 Pitch / Roll / Yaw 时间轴，并可继续导出视频或 GIF。</p>
   </div>;

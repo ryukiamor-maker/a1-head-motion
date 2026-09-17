@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import type { URDFJoint, URDFRobot } from "urdf-loader";
 
-import { applyRobotHeadValues, getRobotHeadJointCenters } from "./robot-head-renderer";
+import {
+  applyRobotHeadValues,
+  getRobotHeadJointCenters,
+  shouldIncludeRotationCenterMarkers,
+} from "./robot-head-renderer";
+import type { ToolcraftState } from "@/toolcraft/runtime";
 
 function createHead2JointFixture(): {
   child: THREE.Object3D;
@@ -99,5 +104,30 @@ describe("head2 custom rotation centers", () => {
     const childWorld = child.getWorldPosition(new THREE.Vector3());
     expect(childWorld.distanceTo(centerWorld)).toBeCloseTo(0.05, 8);
     expect(childWorld.distanceTo(neutralPosition)).toBeGreaterThan(0.01);
+  });
+});
+
+describe("rotation center export visibility", () => {
+  const state = {
+    values: {
+      "export.video.includeRotationCenters": true,
+      "export.video.resolution": "current",
+    },
+  } as unknown as ToolcraftState;
+
+  it("includes markers for video-sized frames when enabled", () => {
+    expect(shouldIncludeRotationCenterMarkers({ height: 900, width: 1400 }, 1, state)).toBe(true);
+  });
+
+  it("keeps image-sized frames clean", () => {
+    expect(shouldIncludeRotationCenterMarkers({ height: 900, width: 1400 }, 4096 / 1400, state)).toBe(false);
+  });
+
+  it("omits markers when the export option is disabled", () => {
+    const disabled = {
+      ...state,
+      values: { ...state.values, "export.video.includeRotationCenters": false },
+    } as ToolcraftState;
+    expect(shouldIncludeRotationCenterMarkers({ height: 900, width: 1400 }, 1, disabled)).toBe(false);
   });
 });

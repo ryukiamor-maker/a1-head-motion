@@ -14,11 +14,15 @@ import {
 import styles from "./robot-head-canvas.module.css";
 import {
   applyRobotHeadValues,
-  getRobotHeadJointCenters,
   registerRobotHeadSurface,
   updateRobotHeadLiveValues,
 } from "./robot-head-renderer";
-import { getRobotModelProfile } from "./model-profiles";
+import { loadHead3Robot } from "./model3-loader";
+import {
+  createRotationCenterMarkers,
+  type RotationCenterMarker,
+  updateRotationCenterMarkers,
+} from "./rotation-center-markers";
 import {
   getUrdfSource,
   resolveUploadedUrdfUrl,
@@ -30,81 +34,11 @@ function disposeObject(root: THREE.Object3D): void {
     const mesh = object as THREE.Mesh;
     mesh.geometry?.dispose?.();
     const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
-    materials.forEach((material) => material.dispose());
-  });
-}
-
-type RotationCenterMarker = {
-  centerIndex: number;
-  group: THREE.Group;
-  jointName: string;
-};
-
-const markerAxes = [
-  new THREE.Vector3(0, 1, 0),
-  new THREE.Vector3(1, 0, 0),
-  new THREE.Vector3(0, 0, 1),
-] as const;
-const markerColors = [0xef4444, 0x22c55e, 0x3b82f6] as const;
-
-function createRotationCenterMarker(
-  color: number,
-  axis: THREE.Vector3,
-  centerIndex: number,
-  jointName: string,
-): RotationCenterMarker {
-  const group = new THREE.Group();
-  group.name = `rotation-center-${jointName}`;
-  group.userData.rotationCenterMarker = true;
-
-  const material = new THREE.MeshBasicMaterial({
-    color,
-    depthTest: false,
-    depthWrite: false,
-    toneMapped: false,
-  });
-  const center = new THREE.Mesh(new THREE.SphereGeometry(0.005, 18, 12), material);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.0015, 8, 32), material);
-  const axisLine = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.0015, 0.045, 10), material);
-  const zAxis = new THREE.Vector3(0, 0, 1);
-  const yAxis = new THREE.Vector3(0, 1, 0);
-  ring.quaternion.setFromUnitVectors(zAxis, axis);
-  axisLine.quaternion.setFromUnitVectors(yAxis, axis);
-  [center, ring, axisLine].forEach((mesh) => {
-    mesh.renderOrder = 20;
-    group.add(mesh);
-  });
-  return { centerIndex, group, jointName };
-}
-
-function createRotationCenterMarkers(robot: URDFRobot): RotationCenterMarker[] {
-  const profile = getRobotModelProfile("head2");
-  return profile.jointNames.flatMap((jointName, index) => {
-    const joint = robot.joints[jointName];
-    if (!joint?.parent) return [];
-    const marker = createRotationCenterMarker(
-      markerColors[index],
-      markerAxes[index],
-      index,
-      jointName,
-    );
-    joint.parent.add(marker.group);
-    return [marker];
-  });
-}
-
-function updateRotationCenterMarkers(
-  robot: URDFRobot | null,
-  markers: RotationCenterMarker[],
-  values: Record<string, unknown>,
-  visible: boolean,
-): void {
-  const profile = getRobotModelProfile(values["model.variant"]);
-  const centers = getRobotHeadJointCenters(values);
-  markers.forEach((marker) => {
-    const joint = robot?.joints[marker.jointName];
-    marker.group.visible = visible && profile.id === "head2" && Boolean(joint);
-    if (joint) marker.group.position.copy(centers[marker.centerIndex]);
+    materials.forEach((material) => {
+      const textured = material as THREE.MeshStandardMaterial;
+      textured.map?.dispose();
+      material.dispose();
+    });
   });
 }
 
@@ -171,10 +105,13 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       getViewportSize: () => ({ height: host.clientHeight, width: host.clientWidth }),
       renderer,
       scene,
-      setRotationCenterMarkersVisible: (visible) => {
-        rotationCenterMarkersRef.current.forEach((marker) => {
-          marker.group.visible = visible && rotationCenterMarkersEnabledRef.current;
-        });
+      updateRotationCenterMarkers: (frameValues, visible) => {
+        updateRotationCenterMarkers(
+          robotRef.current,
+          rotationCenterMarkersRef.current,
+          frameValues,
+          visible && rotationCenterMarkersEnabledRef.current,
+        );
       },
     });
 
@@ -253,6 +190,27 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     const load = async () => {
       try {
         const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
+        if (values["model.variant"] === "head3") {
+          const robot = await loadHead3Robot(appBaseUrl);
+          if (cancelled) { disposeObject(robot); return; }
+          scene.add(robot);
+          robotRef.current = robot;
+          const box = new THREE.Box3().setFromObject(robot);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          const scale = 1.6 / Math.max(size.x, size.y, size.z, 0.001);
+          robot.userData.fitCenter = center.clone();
+          robot.userData.fitScale = scale;
+          rotationCenterMarkersRef.current = createRotationCenterMarkers(robot, values["model.variant"]);
+          const camera = cameraRef.current;
+          if (camera) {
+            applyRobotHeadValues(robot, camera, values);
+            rotationCenterMarkersEnabledRef.current = true;
+            updateRotationCenterMarkers(robot, rotationCenterMarkersRef.current, values, true);
+          }
+          setStatus(`${source.name} · 完整模型 · 完整刚性头部已载入`);
+          return;
+        }
         const modelDir = values["model.variant"] === "head2" ? "head2" : "head";
         const bundledHeadUrl = new URL(`${modelDir}/`, appBaseUrl);
         const bundledUrdfUrl = new URL(`${modelDir}/urdf/head.urdf`, appBaseUrl);
@@ -290,11 +248,11 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
             const scale = 1.6 / Math.max(size.x, size.y, size.z, 0.001);
             robot.userData.fitCenter = center.clone();
             robot.userData.fitScale = scale;
-            rotationCenterMarkersRef.current = createRotationCenterMarkers(robot);
+            rotationCenterMarkersRef.current = createRotationCenterMarkers(robot, values["model.variant"]);
             const camera = cameraRef.current;
             if (camera) {
               applyRobotHeadValues(robot, camera, values);
-              rotationCenterMarkersEnabledRef.current = values["model.variant"] === "head2";
+              rotationCenterMarkersEnabledRef.current = true;
               updateRotationCenterMarkers(
                 robot,
                 rotationCenterMarkersRef.current,
@@ -322,7 +280,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     const camera = cameraRef.current;
     if (!camera) return;
     applyRobotHeadValues(robotRef.current, camera, values);
-    rotationCenterMarkersEnabledRef.current = values["model.variant"] === "head2";
+    rotationCenterMarkersEnabledRef.current = true;
     updateRotationCenterMarkers(
       robotRef.current,
       rotationCenterMarkersRef.current,

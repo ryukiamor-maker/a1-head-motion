@@ -24,7 +24,12 @@ export const appSchema = defineToolcraft({
               defaultValue: "head1",
               keyframeable: false,
               label: "内置模型",
-              options: [{ label: "Head 1", value: "head1" }, { label: "Head 2", value: "head2" }, { label: "Head 3", value: "head3" }],
+              options: [
+                { label: "Head 1", value: "head1" },
+                { label: "Head 2", value: "head2" },
+                { label: "Head 3", value: "head3" },
+                { label: "可爱机器人 GLB", value: "cuteRobot" },
+              ],
               orderRole: "mode",
               performanceReason: "切换预置机械结构并重新绑定三轴关节。",
               performanceRole: "responsiveness",
@@ -42,6 +47,35 @@ export const appSchema = defineToolcraft({
               performanceRole: "responsiveness",
               target: "source.urdfFolder",
               type: "urdfFolder",
+            },
+            cuteRobotFile: {
+              applicability: { mode: "conditional", all: [{ equals: "cuteRobot", target: "model.variant" }] },
+              defaultValue: { kind: "bundled", name: "可爱机器人_面部平滑屏幕.glb" },
+              description: "模型已拆分为头部与下方底座，并自动绑定 Pitch、Roll、Yaw 三轴旋转中心。",
+              keyframeable: false,
+              label: "可爱机器人模型",
+              orderRole: "input",
+              performanceReason: "重新载入 GLB 并绑定三轴头部层级。",
+              performanceRole: "responsiveness",
+              target: "source.cuteRobotFile",
+              type: "cuteRobotFile",
+            },
+          },
+        },
+        {
+          id: "face-media",
+          title: "面部屏幕视频",
+          controls: {
+            video: {
+              defaultValue: null,
+              description: "上传视频后自动循环播放，并贴到可爱机器人 GLB 的面部屏幕区域。",
+              keyframeable: false,
+              label: "视频源",
+              orderRole: "input",
+              performanceReason: "创建一个复用的视频纹理并随头部关节一起变换。",
+              performanceRole: "responsiveness",
+              target: "source.faceVideo",
+              type: "faceVideo",
             },
           },
         },
@@ -342,7 +376,7 @@ export const appSchema = defineToolcraft({
           title: "头部旋转中心",
           controls: {
             pitchCenterX: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               description: "红色标记所示的 头部 Pitch 关节旋转中心。",
               label: "Pitch 中心 X",
@@ -358,7 +392,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             pitchCenterY: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               label: "Pitch 中心 Y",
               max: 0.2,
@@ -373,7 +407,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             pitchCenterZ: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0.081,
               label: "Pitch 中心 Z",
               max: 0.3,
@@ -388,7 +422,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollCenterX: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               description: "绿色标记所示的 头部 Roll 关节旋转中心。",
               label: "Roll 中心 X",
@@ -404,7 +438,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollCenterY: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               label: "Roll 中心 Y",
               max: 0.2,
@@ -419,8 +453,8 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollCenterZ: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
-              defaultValue: 0,
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
+              defaultValue: 0.081,
               label: "Roll 中心 Z",
               max: 0.3,
               min: -0.1,
@@ -434,7 +468,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             yawCenterX: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               description: "蓝色标记所示的 头部 Yaw 关节旋转中心。",
               label: "Yaw 中心 X",
@@ -450,7 +484,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             yawCenterY: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               label: "Yaw 中心 Y",
               max: 0.2,
@@ -465,7 +499,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             yawCenterZ: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0.0565,
               label: "Yaw 中心 Z",
               max: 0.3,
@@ -571,7 +605,7 @@ export const appSchema = defineToolcraft({
               type: "slider",
             },
             orientation: {
-              defaultValue: { position: [3.4, 2.4, 1.8], up: [0, 0, 1] },
+              defaultValue: { position: [4.5, 0, 1.2], up: [0, 0, 1] },
               description: "拖动视图方向球或点击轴点检查机器人头部。",
               keyframeable: false,
               label: false,
@@ -706,3 +740,4 @@ export const appSchema = defineToolcraft({
     zoom: true,
   },
 });
+

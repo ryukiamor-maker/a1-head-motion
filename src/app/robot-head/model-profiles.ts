@@ -1,5 +1,5 @@
 export type RobotModelProfile = {
-  id: "head1" | "head2" | "head3";
+  id: "head1" | "head2" | "head3" | "cuteRobot";
   packagePath: string;
   jointNames: [string, string, string];
   originZ: [number, number, number];
@@ -24,7 +24,7 @@ export const ROBOT_MODEL_PROFILES: Record<string, RobotModelProfile> = {
   },
   head2: {
     axisSigns: [-1, 1, 1],
-    centerDefaults: [[0, 0, 0.081], [0, 0, 0], [0, 0, 0.0565]],
+    centerDefaults: [[0, 0, 0.081], [0, 0, 0.081], [0, 0, 0.0565]],
     id: "head2",
     jointNames: ["pitch", "roll", "yaw"],
     limits: [[-0.61, 0.61], [-0.523, 0.523], [-1.657, 1.657]],
@@ -33,15 +33,26 @@ export const ROBOT_MODEL_PROFILES: Record<string, RobotModelProfile> = {
   },
   head3: {
     axisSigns: [-1, 1, 1],
-    centerDefaults: [[0, 0, 0.081], [0, 0, 0], [0, 0, 0.0565]],
+    centerDefaults: [[0, 0, 0.081], [0, 0, 0.081], [0, 0, 0.0565]],
     id: "head3",
     jointNames: ["pitch", "roll", "yaw"],
     limits: [[-0.61, 0.61], [-0.523, 0.523], [-1.657, 1.657]],
     originZ: [0.081, 0, 0.0565],
     packagePath: "head3",
   },
+  cuteRobot: {
+    axisSigns: [-1, 1, 1],
+    centerDefaults: [[0, 0.35, 0.081], [0, 0, 0.081], [0, 0, 0.0565]],
+    id: "cuteRobot",
+    jointNames: ["pitch", "roll", "yaw"],
+    limits: [[-0.61, 0.61], [-0.523, 0.523], [-1.657, 1.657]],
+    originZ: [0.35, 0.35, 0.35],
+    packagePath: "cute-robot",
+  },
 };
 
 export function getRobotModelProfile(value: unknown): RobotModelProfile {
-  return ROBOT_MODEL_PROFILES[value === "head2" ? "head2" : value === "head3" ? "head3" : "head1"];
+  return ROBOT_MODEL_PROFILES[
+    value === "head2" ? "head2" : value === "head3" ? "head3" : value === "cuteRobot" ? "cuteRobot" : "head1"
+  ];
 }

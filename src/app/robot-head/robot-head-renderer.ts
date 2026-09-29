@@ -69,6 +69,21 @@ export function getRobotHeadJointCenters(values: Record<string, unknown>): THREE
       return new THREE.Vector3(0, 0, asNumber(values[originTarget], fallback[2]));
     }
     const targets = centerTargetSets[index];
+    if (profile.id === "cuteRobot") {
+      // The supplied GLB is Y-up before the loader's +90° X conversion. Map the
+      // existing Head2 center controls onto that local pivot space so the same
+      // controls remain useful without changing the Head2 UI or timeline data.
+      const defaults = [0.081, 0.081, 0.0565] as const;
+      const x = asNumber(values[targets[0]], 0);
+      const uiY = asNumber(values[targets[1]], 0);
+      const uiZ = asNumber(values[targets[2]], defaults[index]);
+      // Pitch is rooted on the robot at the authored 0.35 m pivot height.
+      // Roll and Yaw are nested below it, so their local Z-height offset must
+      // be relative to that parent pivot. This keeps the default Roll axis
+      // on the same world-height as Pitch instead of one head-height above it.
+      const parentHeight = index === 0 ? 0.35 : 0;
+      return new THREE.Vector3(x, parentHeight + uiZ - defaults[index], uiY);
+    }
     return new THREE.Vector3(
       asNumber(values[targets[0]], fallback[0]),
       asNumber(values[targets[1]], fallback[1]),
@@ -110,7 +125,7 @@ export function applyRobotHeadValues(
       const [lower, upper] = asRange(values[definition.limit], definition.fallbackLimit);
       joint.limit.lower = Math.min(lower, upper);
       joint.limit.upper = Math.max(lower, upper);
-      if (profile.id === "head2" || profile.id === "head3") {
+      if (profile.id === "head2" || profile.id === "head3" || profile.id === "cuteRobot") {
         applyHead2JointCenter(joint, definition.center);
       } else {
         const originZ = asNumber(values[definition.length], definition.lengthDefault);
@@ -135,10 +150,13 @@ export function applyRobotHeadValues(
       asNumber(values["robot.positionY"], 0),
       asNumber(values["robot.positionZ"], 0),
     ));
+    const baseRotation = profile.id === "cuteRobot"
+      ? (robot.userData.baseRotation as readonly [number, number, number] | undefined) ?? [0, 0, 0]
+      : [0, 0, 0];
     robot.rotation.set(
-      THREE.MathUtils.degToRad(asNumber(values["robot.rotationX"], 0)),
-      THREE.MathUtils.degToRad(asNumber(values["robot.rotationY"], 0)),
-      THREE.MathUtils.degToRad(asNumber(values["robot.rotationZ"], 0)),
+      baseRotation[0] + THREE.MathUtils.degToRad(asNumber(values["robot.rotationX"], 0)),
+      baseRotation[1] + THREE.MathUtils.degToRad(asNumber(values["robot.rotationY"], 0)),
+      baseRotation[2] + THREE.MathUtils.degToRad(asNumber(values["robot.rotationZ"], 0)),
       "XYZ",
     );
     robot.updateMatrixWorld(true);

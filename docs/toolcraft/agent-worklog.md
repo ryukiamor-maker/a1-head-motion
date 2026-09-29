@@ -459,3 +459,42 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 - Verification: Focused sequence tests cover stale-track replacement, three animated axes, limits, every chapter, intensity, neutral finish, idempotence, and velocity continuity. TypeScript passes. In-app browser verified three rows, changed head pixels, playing time, and automatic stop at 60s. Protected feature runner is blocked before execution by pre-existing playwright.config.ts signed-authority mismatch; separate focused Playwright scenarios are being diagnosed without altering protected config.
 - Risks: The protected reference-study command fails on this Windows environment: full-video inspection capture limit, seven-second contact sheet ENAMETOOLONG, two-second publication directory rename EPERM. No generated reference evidence or reference-parity claim is fabricated. Settings export still does not include full keyframe tracks; locally persisted timeline and the built-in generator are the replay path. Current joint limits can clamp generated gestures if the user narrows them.
 - Final focused verification: 4 sequence unit tests pass; TypeScript passes; in-app browser shows changing three-axis readouts/model output, neutral finish at 60s, and no console errors. Standalone Playwright scenarios still exceed their 30-second budget in browser interactions/raster capture; automated browser acceptance is not claimed as passed. Protected feature runner also remains blocked by its existing signed-config mismatch.
+
+### Iteration — GLB 原生面部屏幕视频映射修复
+
+- Request: 上传视频仍无法正确播放；不要新增独立显示面，视频必须显示在模型本身屏幕上；允许根据屏幕比例制作测试视频并说明规格。
+- Task type: Later focused renderer/media bug fix.
+- User-visible result: 不再创建额外视频平面。上传视频时直接复用 `tripo_part_2` 原生屏幕网格，仅重建该网格的连续投影 UV 并替换其材质；模型原生曲面、圆角和边框保持不变，视频画面连续且自动循环播放。视频颜色乘以约 0.82 以避免小屏过曝；未上传视频时恢复原始屏幕材质。
+- Source/reference checked: `public/cute-robot.glb` 的 `tripo_part_2` 节点、顶点位置范围与 UV 岛；用户提供的 `video_这次的极光有点不一样_这次的极光..._0 (1).mp4`。
+- Decision: 使用屏幕网格自身 Y/Z 坐标生成连续 UV，校正水平/垂直方向；不新增显示网格，不改变头部三轴绑定。
+- Test asset: `public/face-screen-test-1024x600.mp4`，1024×600、16:9 近似屏幕比例、H.264、YUV420P、30 FPS、6 秒、无音频。
+- Verification: `pnpm typecheck` 通过；Playwright 本地浏览器上传用户 MP4 和测试 MP4，确认视频内容显示在原生圆角屏幕区域且不再碎片/漂浮；测试 MP4 文本方向已校正。 
+- Performance intent: ordinary-product-work.
+- Risks: 视频会按屏幕区域拉伸填充；建议源视频使用接近 1024×600（约 1.71:1）的比例，避免明显裁切或变形。
+
+### Iteration — 无视频屏幕保留与 Roll 中心高度默认值
+
+- Request: 未上传视频时也显示屏幕部分；默认 Roll 旋转轴心高度 Z 与 Pitch 保持一致。
+- Task type: Later focused renderer visibility and schema-default refinement.
+- User-visible result: 可爱机器人未上传视频时始终显示 GLB 自带的深色圆角屏幕；上传视频后仍复用同一屏幕网格。Roll 中心 Z 默认值改为 `0.081 m`，与 Pitch 中心 Z 一致，重置后也回到该值。
+- Decision: 保持 `tripo_part_2` 原生屏幕可见，不再在无视频分支隐藏它；将 `geometry.head2RollCenterZ` schema 默认值设为 `0.081`。
+- Verification: Playwright 本地浏览器确认无视频时屏幕可见；切换至可爱机器人后确认 Roll 中心 Z 显示 `0.081 m`；`pnpm typecheck` 通过。
+- Performance intent: ordinary-product-work.
+
+### Iteration — 可爱机器人 Roll 轴心与 Pitch 轴线重合
+
+- Request: Roll 旋转中心的 Z 位置下移，使其与 Pitch 轴线重合。
+- Task type: Later focused cute-robot joint-pivot alignment.
+- User-visible result: 可爱机器人三轴绑定中，Pitch 仍使用头部基准高度；Roll/Yaw 改为相对父关节的局部高度，Roll 默认世界 Z 高度与 Pitch 完全重合，同时 UI 的 Roll 中心 Z 仍保持 `0.081 m` 可调。
+- Decision: 对 GLB 嵌套关节使用 index-aware pivot mapping：仅根 Pitch 加 `0.35 m` 基准，Roll 和 Yaw 使用相对父节点的高度偏移，避免 Roll 轴心被重复抬高。
+- Verification: `pnpm typecheck` 通过；本地浏览器确认可爱机器人默认 Roll 中心 Z 为 `0.081 m`，并启用旋转中心标记检查轴心布局。
+- Performance intent: ordinary-product-work.
+
+### Iteration — 修复面部视频水平镜像
+
+- Request: 上传到原生面部屏幕的视频左右镜像，文字反向。
+- Task type: Later focused video-texture UV orientation fix.
+- User-visible result: 上传视频在 `tripo_part_2` 原生屏幕上按正常左到右方向显示，视频文字不再镜像；仍然不创建额外显示平面。
+- Decision: 保留现有 Y/Z 连续投影和屏幕曲面，只反转视频纹理的 U 坐标：`u = 1 - projectedU`。
+- Verification: `pnpm typecheck` 通过；浏览器加载应用后确认面部屏幕视频材质逻辑仍绑定原生屏幕网格。
+- Performance intent: ordinary-product-work.

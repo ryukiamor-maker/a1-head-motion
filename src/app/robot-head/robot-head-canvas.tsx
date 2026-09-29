@@ -18,6 +18,13 @@ import {
   updateRobotHeadLiveValues,
 } from "./robot-head-renderer";
 import { loadHead3Robot } from "./model3-loader";
+import { getCuteRobotVideoScreen, loadCuteRobot } from "./cute-robot-loader";
+import {
+  getCustomModelSource,
+  getFaceVideoSource,
+  subscribeCustomModelSource,
+  subscribeFaceVideoSource,
+} from "./custom-source-store";
 import {
   createRotationCenterMarkers,
   type RotationCenterMarker,
@@ -48,6 +55,8 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   const { resolvedTheme } = useToolcraftTheme();
   const values = useToolcraftEvaluatedValues();
   const source = React.useSyncExternalStore(subscribeUrdfSource, getUrdfSource, getUrdfSource);
+  const customModelSource = React.useSyncExternalStore(subscribeCustomModelSource, getCustomModelSource, getCustomModelSource);
+  const faceVideoSource = React.useSyncExternalStore(subscribeFaceVideoSource, getFaceVideoSource, getFaceVideoSource);
   const hostRef = React.useRef<HTMLDivElement>(null);
   const robotRef = React.useRef<URDFRobot | null>(null);
   const sceneRef = React.useRef<THREE.Scene | null>(null);
@@ -58,6 +67,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   const rotationCenterMarkersEnabledRef = React.useRef(false);
   const [status, setStatus] = React.useState("正在载入默认 head URDF…");
   const [error, setError] = React.useState(false);
+  const [robotRevision, setRobotRevision] = React.useState(0);
 
   React.useEffect(() => {
     dispatch({ target: "panels.timeline.visible", type: "controls.setValue", value: true });
@@ -190,11 +200,34 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     const load = async () => {
       try {
         const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
+        if (values["model.variant"] === "cuteRobot") {
+          const robot = await loadCuteRobot(customModelSource.url);
+          if (cancelled) { disposeObject(robot); return; }
+          scene.add(robot);
+          robotRef.current = robot;
+          setRobotRevision((value) => value + 1);
+          const box = new THREE.Box3().setFromObject(robot);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          const scale = 1.6 / Math.max(size.x, size.y, size.z, 0.001);
+          robot.userData.fitCenter = center.clone();
+          robot.userData.fitScale = scale;
+          rotationCenterMarkersRef.current = createRotationCenterMarkers(robot, "cuteRobot");
+          const camera = cameraRef.current;
+          if (camera) {
+            applyRobotHeadValues(robot, camera, values);
+            rotationCenterMarkersEnabledRef.current = true;
+            updateRotationCenterMarkers(robot, rotationCenterMarkersRef.current, values, true);
+          }
+          setStatus(`${customModelSource.name} · GLB · 已绑定三轴头部旋转中心`);
+          return;
+        }
         if (values["model.variant"] === "head3") {
           const robot = await loadHead3Robot(appBaseUrl);
           if (cancelled) { disposeObject(robot); return; }
           scene.add(robot);
           robotRef.current = robot;
+          setRobotRevision((value) => value + 1);
           const box = new THREE.Box3().setFromObject(robot);
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3());
@@ -236,6 +269,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
         robot.rotation.set(0, 0, 0);
         scene.add(robot);
         robotRef.current = robot;
+        setRobotRevision((value) => value + 1);
 
         let fitted = false;
         const fit = () => {
@@ -273,7 +307,82 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     };
     void load();
     return () => { cancelled = true; };
-  }, [source, values["model.variant"]]);
+  }, [customModelSource, source, values["model.variant"]]);
+
+  React.useEffect(() => {
+    const screen = getCuteRobotVideoScreen(robotRef.current);
+    if (!screen) return;
+    const meshes: THREE.Mesh[] = [];
+    screen.traverse((object) => { if ((object as THREE.Mesh).isMesh) meshes.push(object as THREE.Mesh); });
+    const materials = meshes.flatMap((mesh) => Array.isArray(mesh.material) ? mesh.material : [mesh.material]);
+    const previousMaterials = meshes.map((mesh) => mesh.material);
+    const previousUvs = meshes.map((mesh) => mesh.geometry.getAttribute("uv")?.clone() ?? null);
+    const videoMaterials: THREE.MeshBasicMaterial[] = [];
+    let video: HTMLVideoElement | null = null;
+    let texture: THREE.VideoTexture | null = null;
+    if (faceVideoSource.url) {
+      video = document.createElement("video");
+      video.src = faceVideoSource.url;
+      video.autoplay = true;
+      video.preload = "auto";
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      video.addEventListener("loadedmetadata", () => { void video?.play().catch(() => undefined); }, { once: true });
+      video.addEventListener("canplay", () => { void video?.play().catch(() => undefined); }, { once: true });
+      texture = new THREE.VideoTexture(video);
+      texture.flipY = false;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      meshes.forEach((mesh) => {
+        const position = mesh.geometry.getAttribute("position");
+        if (!position) return;
+        const uv = new Float32Array(position.count * 2);
+        for (let index = 0; index < position.count; index += 1) {
+          const y = position.getY(index);
+          const z = position.getZ(index);
+          // Project continuously over the authored screen surface. This avoids
+          // the GLB's disconnected bevel UV islands while keeping the original
+          // curved screen geometry and rounded outline.
+          // The GLB screen surface is authored with its local Z direction
+          // opposite to the viewer's left-to-right direction. Reverse U so
+          // uploaded video text is readable instead of horizontally mirrored.
+          uv[index * 2] = 1 - THREE.MathUtils.clamp((z + 0.292) / 0.584, 0, 1);
+          uv[index * 2 + 1] = 1 - THREE.MathUtils.clamp((y - 0.373) / 0.371, 0, 1);
+        }
+        mesh.geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+        const material = new THREE.MeshBasicMaterial({
+          color: 0xd9d9d9,
+          map: texture,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        });
+        videoMaterials.push(material);
+        mesh.material = material;
+      });
+      screen.visible = true;
+      video.load();
+      void video.play().catch(() => undefined);
+    } else {
+      // Keep the authored rounded screen visible when no video is attached;
+      // the model's original dark screen material is the idle display.
+      screen.visible = true;
+    }
+    return () => {
+      video?.pause();
+      video?.removeAttribute("src");
+      video?.load();
+      texture?.dispose();
+      meshes.forEach((mesh, index) => {
+        mesh.material = previousMaterials[index];
+        const previousUv = previousUvs[index];
+        if (previousUv) mesh.geometry.setAttribute("uv", previousUv);
+      });
+      videoMaterials.forEach((material) => material.dispose());
+    };
+  }, [faceVideoSource, robotRevision, values["model.variant"]]);
 
   React.useEffect(() => {
     updateRobotHeadLiveValues(values);

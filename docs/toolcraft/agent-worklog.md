@@ -498,3 +498,18 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 - Decision: 保留现有 Y/Z 连续投影和屏幕曲面，只反转视频纹理的 U 坐标：`u = 1 - projectedU`。
 - Verification: `pnpm typecheck` 通过；浏览器加载应用后确认面部屏幕视频材质逻辑仍绑定原生屏幕网格。
 - Performance intent: ordinary-product-work.
+
+### Iteration — 视角拖动流畅度与惯性优化
+
+- Request: “提交，并开始优化一下视角拖动的流畅度与手感”。
+- Task type: Later focused runtime interaction/performance refinement for the existing model orbit surface.
+- User-visible result: 模型直接拖动改为每帧合并指针增量，速度使用约 45ms 低通估计；松手后按速度启动短惯性，并以帧率无关阻尼自然停止。新拖动、组件卸载、指针取消、外部状态写入都会终止旧惯性；瞬时速度增加每帧上限，避免低帧率或大位移造成突然甩动。
+- Source/reference checked: `use-toolcraft-model-orbit-interaction.ts`、Orientation Gizmo 组件规则，以及本地应用的实际模型画布拖动。
+- Docs/contracts read: `docs/toolcraft/workflow.md`、`docs/toolcraft/core/runtime-boundary.md`、`docs/toolcraft/component-rules.md`；沿用 `viewInteraction.mode: "orbit"` 与 `useToolcraftModelOrbitInteraction` 的运行时归属。
+- Decision: 保留现有 turntable 旋转内核、目标状态、历史合并和 canvas ownership；只在 pointer event 到 pose 写入之间增加 RAF 合帧、速度估计、惯性阻尼和边界清理，不新增第二套相机或局部状态源。
+- Alternatives rejected: 不新增独立相机控制器、不在产品渲染器中复制旋转逻辑、不用固定延迟轮询替代 `requestAnimationFrame`。
+- State/output mapping: 指针增量仍通过 `getToolcraftOrientationPoseFromPointerDelta` 写入 `view.orbit`；模型渲染和 Orientation Gizmo 继续读取同一共享 pose。
+- Verification tier: Tier 3 focused renderer/runtime interaction check.
+- Focused checks: `pnpm typecheck` 通过；`git diff --check` 通过；本地浏览器实际拖动模型并观察松手后的短惯性，页面模型正常显示。`pnpm test:feature -- model.orientation` 未运行到测试阶段，因仓库现有 `playwright.config.ts` signed config authority mismatch；`pnpm ai:check` 仍受既有产品边界问题阻塞，与本次改动无关。
+- Performance authority: localized request; `appPerformance` 当前未声明 canonical model-orbit path IDs，因此本次只做 focused interaction refinement，不运行 measured performance suite。
+- Risks: 本地开发服务的历史 HMR 日志中存在旧模块 reload warning；重新加载后的当前页面可正常载入模型并完成拖动，未观察到新的运行时错误。

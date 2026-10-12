@@ -16,6 +16,19 @@ function makeDemo(intensity = 1) {
 }
 
 describe("continuous interaction demo", () => {
+  it("generates only Pitch and Yaw tracks in two-degree mode", () => {
+    const initial = createToolcraftState(appSchema, { values: {
+      "model.variant": "cuteRobot",
+      "motion.dofMode": "2dof",
+      "motion.demoIntensity": 1,
+    } });
+    const result = createInteractionDemoCommands(initial).reduce(toolcraftReducer, initial);
+    expect(result.timeline.keyframeGroups.map((group) => group.controlId)).toEqual([
+      "motion.pitch",
+      "motion.yaw",
+    ]);
+  });
+
   it("replaces a stale single-axis timeline with a complete playing three-axis take", () => {
     const { initial, result } = makeDemo();
     expect(result.timeline.durationSeconds).toBe(60);

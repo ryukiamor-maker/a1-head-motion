@@ -2,6 +2,7 @@ import { defineToolcraft } from "@/toolcraft/runtime";
 
 import { appIdentity } from "./app-identity";
 import { INTERACTION_DEMO_ACTION } from "./robot-head/interaction-demo";
+import { comparisonActions } from "./robot-head/comparison-actions";
 
 export const appSchema = defineToolcraft({
   canvas: {
@@ -81,8 +82,24 @@ export const appSchema = defineToolcraft({
         },
         {
           id: "motion",
-          title: "三自由度动作",
+          title: "头部动作",
           controls: {
+            dofMode: {
+              applicability: { mode: "always" },
+              defaultValue: "3dof",
+              description: "在两自由度（Pitch + Yaw）和三自由度（Pitch + Roll + Yaw）之间切换头部动作。",
+              keyframeable: false,
+              label: "自由度",
+              options: [
+                { label: "2自由度", value: "2dof" },
+                { label: "3自由度", value: "3dof" },
+              ],
+              orderRole: "mode",
+              performanceReason: "切换头部 Roll 轴是否参与动作、追踪、时间轴和导出。",
+              performanceRole: "responsiveness",
+              target: "motion.dofMode",
+              type: "segmented",
+            },
             demoIntensity: {
               applicability: { mode: "always" },
               defaultValue: 1,
@@ -135,6 +152,7 @@ export const appSchema = defineToolcraft({
               unit: "rad",
             },
             roll: {
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }] },
               defaultValue: 0,
               label: "Roll / axis2",
               max: 0.52,
@@ -159,6 +177,22 @@ export const appSchema = defineToolcraft({
               target: "motion.yaw",
               type: "slider",
               unit: "rad",
+            },
+          },
+        },
+        {
+          id: "motion-presets",
+          title: "常见动作",
+          controls: {
+            comparisonActions: {
+              actions: comparisonActions.map((action) => ({ label: action.actionName, value: `motion.comparison.${action.slug}` })),
+              applicability: { mode: "always" },
+              defaultValue: null,
+              keyframeable: false,
+              label: false,
+              orderRole: "action",
+              target: "motion.comparison",
+              type: "actions",
             },
           },
         },
@@ -292,6 +326,7 @@ export const appSchema = defineToolcraft({
               unit: "°",
             },
             maxRoll: {
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }] },
               defaultValue: 45,
               description: "摄像头 Roll 映射到机器人 Roll 的最大角度。",
               keyframeable: false,
@@ -342,7 +377,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollLength: {
-              applicability: { mode: "conditional", all: [{ equals: "head1", target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }, { equals: "head1", target: "model.variant" }] },
               defaultValue: 0.048,
               label: "axis2 → roll_Link",
               max: 0.2,
@@ -422,7 +457,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollCenterX: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }, { oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               description: "绿色标记所示的 头部 Roll 关节旋转中心。",
               label: "Roll 中心 X",
@@ -438,7 +473,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollCenterY: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }, { oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0,
               label: "Roll 中心 Y",
               max: 0.2,
@@ -453,7 +488,7 @@ export const appSchema = defineToolcraft({
               unit: "m",
             },
             rollCenterZ: {
-              applicability: { mode: "conditional", all: [{ oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }, { oneOf: ["head2", "head3", "cuteRobot"], target: "model.variant" }] },
               defaultValue: 0.081,
               label: "Roll 中心 Z",
               max: 0.3,
@@ -533,6 +568,7 @@ export const appSchema = defineToolcraft({
               unit: "rad",
             },
             rollLimits: {
+              applicability: { mode: "conditional", all: [{ equals: "3dof", target: "motion.dofMode" }] },
               defaultValue: [-0.52, 0.52],
               label: "Roll 下限 / 上限",
               max: 3.14,
@@ -726,13 +762,16 @@ export const appSchema = defineToolcraft({
     timeline: { defaultDurationSeconds: 4, enabled: true, mode: "keyframes" },
   },
   persistence: {
-    additionalValueTargets: ["source.urdfFolder", "capture.headTracking", "capture.sensitivity", "capture.maxPitch", "capture.maxRoll", "capture.maxYaw"],
+    additionalValueTargets: ["source.urdfFolder", "capture.headTracking", "capture.sensitivity", "capture.maxPitch", "capture.maxRoll", "capture.maxYaw", "motion.importPackage", "motion.comparisonName", "export.video.comparisonMode"],
     include: ["values", "canvas", "panels", "timeline"],
     key: "toolcraft:robot-head-studio:state:v1",
     storage: "localStorage",
     version: 1,
   },
-  settingsTransfer: "auto",
+  settingsTransfer: {
+    additionalValueTargets: ["motion.importPackage", "motion.comparisonName", "export.video.comparisonMode"],
+    enabled: "auto",
+  },
   toolbar: {
     history: true,
     radar: true,

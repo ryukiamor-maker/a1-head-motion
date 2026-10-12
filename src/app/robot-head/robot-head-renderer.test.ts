@@ -62,6 +62,29 @@ describe("robot head camera orientation", () => {
 });
 
 describe("head2 custom rotation centers", () => {
+  it("holds the Roll joint at neutral in two-degree mode", () => {
+    const robot = new THREE.Object3D() as URDFRobot;
+    const parent = new THREE.Object3D();
+    const roll = new THREE.Object3D() as URDFJoint;
+    let appliedAngle = Number.NaN;
+    roll.axis = new THREE.Vector3(1, 0, 0);
+    roll.ignoreLimits = false;
+    roll.limit = { effort: 0, lower: -0.52, upper: 0.52, velocity: 0 };
+    roll.setJointValue = (angle: number) => { appliedAngle = angle; return true; };
+    parent.add(roll);
+    robot.add(parent);
+    robot.joints = { roll };
+    robot.setJointValue = (name: string, angle: number) => robot.joints[name]?.setJointValue(angle) ?? false;
+
+    applyRobotHeadValues(robot, new THREE.PerspectiveCamera(), {
+      "model.variant": "head2",
+      "motion.dofMode": "2dof",
+      "motion.roll": 0.4,
+    });
+
+    expect(appliedAngle).toBe(0);
+  });
+
   it("reads independent XYZ centers for all three axes", () => {
     const centers = getRobotHeadJointCenters({
       "geometry.head2PitchCenterX": 0.02,

@@ -9,6 +9,7 @@ import {
   useToolcraftEvaluatedValues,
   useToolcraftProductSceneFrame,
   useToolcraftTheme,
+  useToolcraftValue,
 } from "@/toolcraft/runtime/react";
 
 import styles from "./robot-head-canvas.module.css";
@@ -18,6 +19,7 @@ import {
   updateRobotHeadLiveValues,
 } from "./robot-head-renderer";
 import { loadHead3Robot } from "./model3-loader";
+import { createMotionPackageImportCommands, MOTION_PACKAGE_IMPORT_TARGET } from "./motion-package";
 import { getCuteRobotVideoScreen, loadCuteRobot } from "./cute-robot-loader";
 import {
   getCustomModelSource,
@@ -54,6 +56,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   const dispatch = useToolcraftDispatch();
   const { resolvedTheme } = useToolcraftTheme();
   const values = useToolcraftEvaluatedValues();
+  const importedMotionPackage = useToolcraftValue(MOTION_PACKAGE_IMPORT_TARGET);
   const source = React.useSyncExternalStore(subscribeUrdfSource, getUrdfSource, getUrdfSource);
   const customModelSource = React.useSyncExternalStore(subscribeCustomModelSource, getCustomModelSource, getCustomModelSource);
   const faceVideoSource = React.useSyncExternalStore(subscribeFaceVideoSource, getFaceVideoSource, getFaceVideoSource);
@@ -75,6 +78,11 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     dispatch({ expanded: true, type: "timeline.setExpanded" });
     dispatch({ panelId: "timeline", type: "panels.resetOffset" });
   }, [dispatch]);
+
+  React.useEffect(() => {
+    if (importedMotionPackage == null) return;
+    createMotionPackageImportCommands(importedMotionPackage).forEach(dispatch);
+  }, [dispatch, importedMotionPackage]);
 
   React.useEffect(() => {
     const host = hostRef.current;

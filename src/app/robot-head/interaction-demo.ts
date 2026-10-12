@@ -3,6 +3,7 @@ import {
   type ToolcraftCommand,
   type ToolcraftState,
 } from "@/toolcraft/runtime";
+import { getActiveHeadAxes } from "./head-motion-mode";
 
 export const INTERACTION_DEMO_DURATION = 60;
 export const INTERACTION_DEMO_ACTION = "motion.generateInteractionDemo";
@@ -111,7 +112,7 @@ export function createInteractionDemoCommands(state: ToolcraftState): ToolcraftC
     { type: "timeline.setExpanded", expanded: true },
   );
   if (state.timeline.isLooping) commands.push({ type: "timeline.toggleLoop" });
-  for (const axis of ["pitch", "roll", "yaw"] as const) {
+  for (const axis of getActiveHeadAxes(state.values)) {
     const controlId = `motion.${axis}`;
     const controlLabel = `${axis[0].toUpperCase()}${axis.slice(1)}`;
     commands.push({ type: "controls.setValue", target: controlId, value: 0 });

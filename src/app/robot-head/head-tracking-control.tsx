@@ -6,6 +6,7 @@ import type { ToolcraftCustomControlRendererProps } from "@/toolcraft/runtime/re
 import { useToolcraftEvaluatedValues } from "@/toolcraft/runtime/react";
 import { Button } from "@/toolcraft/ui";
 import styles from "./head-tracking-control.module.css";
+import { getActiveHeadAxes, isTwoDegreeOfFreedom } from "./head-motion-mode";
 
 type TrackingValue = { enabled: boolean; smoothing: number };
 type Pose = { yaw: number; pitch: number; roll: number };
@@ -32,6 +33,8 @@ export function HeadTrackingControl({ dispatch, setValue, state, value }: Toolcr
   const [pose, setPose] = React.useState<Pose>({ yaw: 0, pitch: 0, roll: 0 });
   const filteredPoseRef = React.useRef<Pose>({ yaw: 0, pitch: 0, roll: 0 });
   const recordingRef = React.useRef(false);
+  const motionValuesRef = React.useRef(state.values);
+  motionValuesRef.current = state.values;
   const smoothingRef = React.useRef(value?.smoothing ?? 0.7);
   smoothingRef.current = value?.smoothing ?? 0.7;
   const mappingRef = React.useRef({ sensitivity: 2, maxPitch: 45, maxRoll: 45, maxYaw: 90 });
@@ -57,7 +60,10 @@ export function HeadTrackingControl({ dispatch, setValue, state, value }: Toolcr
     const roll = rollDegrees * Math.PI / 180;
     const yaw = yawDegrees * Math.PI / 180;
     setPose(next);
-    for (const [target, angle] of [["motion.pitch", pitch], ["motion.roll", roll], ["motion.yaw", yaw]] as const) {
+    const angles = { pitch, roll, yaw };
+    for (const axis of getActiveHeadAxes(motionValuesRef.current)) {
+      const target = `motion.${axis}`;
+      const angle = angles[axis];
       dispatch({ target, type: "controls.setValue", value: angle });
       if (record) dispatch({ controlId: target, controlLabel: target.split(".")[1], timeSeconds, type: "timeline.upsertControlKeyframe", value: angle, valueLabel: `${angle.toFixed(3)} rad` });
     }
@@ -110,15 +116,15 @@ export function HeadTrackingControl({ dispatch, setValue, state, value }: Toolcr
   const currentValue = value ?? { enabled: false, smoothing: 0.7 };
   const displayedPose = trackerRef.current ? pose : {
     pitch: Number(animatedValues["motion.pitch"] ?? 0) * DEG,
-    roll: Number(animatedValues["motion.roll"] ?? 0) * DEG,
+    roll: isTwoDegreeOfFreedom(animatedValues) ? 0 : Number(animatedValues["motion.roll"] ?? 0) * DEG,
     yaw: Number(animatedValues["motion.yaw"] ?? 0) * DEG,
   };
   return <div className={styles.control} data-slot="head-tracking-control">
     <video ref={videoRef} className={styles.preview} muted playsInline aria-label="摄像头人脸预览" />
     <div className={styles.row}><p className={`${styles.status} ${trackerRef.current ? styles.live : ""}`}>{status}</p><Button size="sm" onClick={() => (trackerRef.current ? stop() : void start())}>{trackerRef.current ? "停止" : "启动"}</Button><Button size="sm" variant={recording ? "destructive" : "outline"} disabled={!trackerRef.current} onClick={() => { const active = !recordingRef.current; recordingRef.current = active; setRecording(active); const now = performance.now(); recordingStartRef.current = now; lastSampleRef.current = now; }}>{recording ? "停止录制" : "录制追踪"}</Button></div>
     <p className={styles.hint}>{trackerRef.current ? "人头捕捉姿态" : "当前动画姿态"}</p>
-    <dl className={styles.readout}>{(["yaw", "pitch", "roll"] as const).map((axis) => <div key={axis}><dt>{axis.toUpperCase()}</dt><dd>{displayedPose[axis].toFixed(1)}°</dd></div>)}</dl>
+    <dl className={styles.readout}>{getActiveHeadAxes(animatedValues).map((axis) => <div key={axis}><dt>{axis.toUpperCase()}</dt><dd>{displayedPose[axis].toFixed(1)}°</dd></div>)}</dl>
     <label className={styles.hint}>平滑 <input className={styles.slider} type="range" min="0" max="0.95" step="0.05" value={currentValue.smoothing} onChange={(event) => setValue({ ...currentValue, smoothing: Number(event.target.value) })} /></label>
-    <p className={styles.hint}>录制采样会写入现有 Pitch / Roll / Yaw 时间轴，并可继续导出视频或 GIF。</p>
+    <p className={styles.hint}>录制采样会写入现有 {isTwoDegreeOfFreedom(animatedValues) ? "Pitch / Yaw" : "Pitch / Roll / Yaw"} 时间轴，并可继续导出视频或 GIF。</p>
   </div>;
 }

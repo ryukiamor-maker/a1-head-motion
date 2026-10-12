@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { URDFRobot } from "urdf-loader";
 
 import { getRobotModelProfile } from "./model-profiles";
+import { isTwoDegreeOfFreedom } from "./head-motion-mode";
 import { getRobotHeadJointCenters } from "./robot-head-renderer";
 
 export type RotationCenterMarker = {
@@ -106,7 +107,8 @@ export function updateRotationCenterMarkers(
   const centers = getRobotHeadJointCenters(values);
   markers.forEach((marker) => {
     const joint = robot?.joints[marker.jointName];
-    marker.group.visible = visible && Boolean(joint);
+    marker.group.visible = visible && Boolean(joint)
+      && !(marker.centerIndex === 1 && isTwoDegreeOfFreedom(values));
     if (joint) marker.group.position.copy(centers[marker.centerIndex]);
   });
 }

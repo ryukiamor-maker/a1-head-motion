@@ -11,6 +11,7 @@ import {
 } from "@/toolcraft/runtime";
 import { readToolcraftOrientationPose } from "@/toolcraft/runtime/react";
 import { getRobotModelProfile } from "./model-profiles";
+import { isTwoDegreeOfFreedom } from "./head-motion-mode";
 
 type RobotHeadSurface = {
   camera: THREE.PerspectiveCamera;
@@ -39,6 +40,7 @@ let liveValues: Record<string, unknown> = {};
 
 const asNumber = (value: unknown, fallback: number): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
 
 function asRange(value: unknown, fallback: readonly [number, number]): [number, number] {
   return Array.isArray(value) && value.length >= 2
@@ -136,6 +138,10 @@ export function applyRobotHeadValues(
     definitions.forEach((definition) => {
       const joint = robot.joints[definition.joint];
       if (!joint) return;
+      if (definition.angle === "motion.roll" && isTwoDegreeOfFreedom(values)) {
+        robot.setJointValue(definition.joint, 0);
+        return;
+      }
       const requested = asNumber(values[definition.angle], 0);
       robot.setJointValue(definition.joint, Math.min(joint.limit.upper, Math.max(joint.limit.lower, requested * definition.sign)));
     });
@@ -245,6 +251,49 @@ export const robotHeadExportRenderer: ToolcraftProductExportRenderer = {
     const width = Math.max(1, Math.round(frame.width * pixelRatio));
     const height = Math.max(1, Math.round(frame.height * pixelRatio));
     try {
+      if (state.values["export.video.comparisonMode"] === true) {
+        const actionName = typeof state.values["motion.comparisonName"] === "string"
+          ? state.values["motion.comparisonName"].slice(0, 64)
+          : "";
+        const titleHeight = Math.min(72, Math.max(48, frame.height * 0.1));
+        const labelHeight = Math.min(42, Math.max(30, frame.height * 0.06));
+        const modelTop = frame.y + titleHeight + labelHeight;
+        const paneWidth = frame.width / 2;
+        const modelHeight = Math.max(1, frame.height - titleHeight - labelHeight);
+        const panePixelWidth = Math.max(1, Math.round(paneWidth * pixelRatio));
+        const modelPixelHeight = Math.max(1, Math.round(modelHeight * pixelRatio));
+        const values = evaluateToolcraftTimelineValues(state, timeSeconds);
+
+        context.save();
+        context.fillStyle = "#f8fafc";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.font = `600 ${Math.max(18, Math.round(titleHeight * 0.48))}px "Microsoft YaHei", sans-serif`;
+        if (actionName) context.fillText(actionName, frame.x + frame.width / 2, frame.y + titleHeight / 2);
+        context.font = `600 ${Math.max(16, Math.round(labelHeight * 0.58))}px "Microsoft YaHei", sans-serif`;
+        context.fillText("2自由度", frame.x + paneWidth / 2, frame.y + titleHeight + labelHeight / 2);
+        context.fillText("3自由度", frame.x + paneWidth * 1.5, frame.y + titleHeight + labelHeight / 2);
+
+        for (const [index, dofMode] of ["2dof", "3dof"].entries()) {
+          renderSurface(
+            surface,
+            { ...values, "motion.dofMode": dofMode },
+            panePixelWidth,
+            modelPixelHeight,
+            false,
+          );
+          context.drawImage(
+            surface.renderer.domElement,
+            frame.x + paneWidth * index,
+            modelTop,
+            paneWidth,
+            modelHeight,
+          );
+        }
+        context.restore();
+        return;
+      }
+
       renderSurface(
         surface,
         evaluateToolcraftTimelineValues(state, timeSeconds),

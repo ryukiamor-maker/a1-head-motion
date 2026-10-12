@@ -31,6 +31,41 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ## Decision Trail
 
+### Iteration 9 — Common motion comparison videos and settings
+
+- Request: 编排几种常见的头部动作，将二、三自由度并排对比并生成每个动作的视频，同时生成可直接导入查看的配置 JSON；视频只保留动作名称、2自由度和3自由度标注。
+- Task type: Later focused product feature, timeline-keyframe settings import, comparison video rendering, and generated media delivery (Tier 3).
+- User-visible result: “常见动作”区提供唤醒后转向用户、点头确认、摇头否定、歪头倾听、歪头疑惑。每个 JSON 通过 Import Settings 恢复模型、自由度、动作名与完整 Pitch/Roll/Yaw 关键帧。启用该动作包后，现有 Export Video 逐帧并排输出 2/3 自由度，2 自由度 Roll 保持中立，画面文字仅含动作名和自由度标签。
+- Source/reference checked: Existing `interaction-demo.ts`, retained cute robot GLB renderer, the previous `motion.dofMode` implementation, runtime settings transfer, and the existing five-action source in `emotion-motion-delivery/actions.mjs`.
+- Docs/contracts read: `workflow.md`, `core/runtime-boundary.md`, `core/control-selection.md`, `core/layout.md`, `core/timeline-animation.md`, `core/setup-export.md`, `core/performance.md`, `schema-reference.md`, `component-rules.md`, `renderer-technique.md`, `decision-contract.md`, and `acceptance-testing.md`.
+- Contract rules applied: Keep animation and keyframes in the Toolcraft timeline, import through the runtime-owned settings control, use additional transfer targets only for the serialized action package, extend the shared deterministic export renderer, and retain runtime ownership of dimensions, frame schedule, encoding, and download.
+- View interaction intent: Existing `orbit` target remains the camera owner; both panels share one current camera pose and retained GLB.
+- Interaction ownership: The panel owns named action selection and settings import; the timeline owns transport and keyframes; the export renderer owns the paired layout and the three permitted text labels.
+- Decision: Add a validated one-shot `motion.importPackage` target and clear it after converting every action track to timeline commands. Set `export.video.comparisonMode` and `motion.comparisonName` from the action selection or imported JSON. For each export frame, render the same evaluated pose once with `2dof` and once with `3dof` into the runtime-provided frame.
+- Alternatives rejected: A parallel app-owned timeline, a separate model/camera cache per panel, DOM labels outside the export frame, product-side encoding/download, and extending the existing 60-second demo for short isolated clips.
+- State/output mapping: `motion.importPackage` restores timeline groups; `motion.dofMode` gates the Roll joint; `motion.comparisonName` labels the frame; `export.video.comparisonMode` selects paired output; `robotHeadExportRenderer` draws only the action title and two degree-of-freedom labels.
+- Focused checks: `pnpm typecheck`, production `pnpm build`, and focused motion package/renderer tests. Browser acceptance uses `e2e/product-motion-comparison.spec.ts`; generated MP4s are checked by ffprobe and a full ffmpeg decode.
+- Delivery verification: `node scripts/generate-motion-comparison.mjs` completed all five actions. `C:/Users/geneliu/Desktop/Demo/motion-comparison-delivery/验证报告.json` records five H.264 MP4s at 1400×900, 30 fps, with durations of 6–8 seconds; each passed ffprobe inspection and full ffmpeg decode. The same run imported each JSON through the live `Import Settings` control and restored three timeline tracks before export.
+- Risks: Toolcraft settings transfer intentionally excludes keyframe groups, so the serializable additional target carries the authored tracks and the product restores them through timeline commands after import. Measured performance is not part of this ordinary feature change.
+
+### Iteration 8 — Two- and three-degree head motion comparison
+
+- Request: 在可爱机器人 GLB 模型控制面板下增加 2、3 自由度切换，2 自由度缺失 Roll 轴。
+- Task type: Later focused schema-control, applicability, retained-renderer, tracking, and timeline refinement (Tier 3).
+- User-visible result: “头部动作”下新增自由度分段切换。2 自由度显示 Pitch + Yaw，隐藏 Roll 动作、Roll 限位、Roll 旋转中心和 Roll 最大角度；模型渲染、演示生成、摄像头录制与导出帧均让 Roll 保持中立。切回 3 自由度恢复原有三轴控制。
+- Source/reference checked: Existing cute robot GLB retained Three.js rig, Toolcraft schema applicability, interaction-demo timeline commands, MediaPipe tracking control, and rotation-center marker renderer.
+- Reference inputs: None; this is a direct product comparison feature.
+- Docs/contracts read: `workflow.md`, `core/control-selection.md`, `core/layout.md`, `core/runtime-boundary.md`, `schema-reference.md`, `decision-contract.md`, `component-rules.md`, `core/timeline-animation.md`, `renderer-technique.md`, and `acceptance-testing.md`.
+- Contract rules applied: Use the built-in Segmented control for a compact finite mode, keep mode and dependent controls in one product entity, hide inactive branches through typed applicability, keep one canonical runtime value across renderer/tracking/timeline/export, and use focused later-feature verification.
+- View interaction intent: Existing `orbit` view and `view.orbit` orientation gizmo remain unchanged.
+- Interaction ownership: The panel owns the exact degree-of-freedom mode; the retained canvas owns the resulting head pose. Timeline and camera tracking remain complementary input sources and now write only the active axes.
+- Decision: Store `motion.dofMode` as `2dof` or `3dof`; in 2dof force the Roll joint and Roll marker to neutral/hidden, omit Roll from generated and recorded active-axis writes, and preserve the Roll value/keyframes for restoration when returning to 3dof.
+- Alternatives rejected: A second custom comparison panel, deleting Roll state on mode changes, or leaving Roll controls visible while silently ignoring them.
+- State/output mapping: `motion.dofMode` gates schema controls; `getActiveHeadAxes` gates demo/tracking writes; `applyRobotHeadValues` gates the retained joint pose; marker visibility gates the green Roll center.
+- Performance intent: ordinary-product-work. Mode changes only update existing retained transforms and control applicability; no measured performance run is authorized.
+- Verification: `pnpm typecheck`, focused Vitest tests (16 passed), and production `pnpm build` passed. The focused `pnpm test:feature -- motion.dofMode` was blocked because the signed `playwright.config.ts` authority check failed. Direct Playwright exercised the mode switch and Roll-absence assertions, but protected proof did not complete because the runner timed out while reloading the local test server; no browser acceptance pass is claimed.
+- Risks: The existing app has pre-existing code-health violations (schema line-budget and older custom file/range/model loader paths); this iteration does not expand those boundaries.
+
 ### Iteration 7 — Head1 center annotations, lighter markers, and export visibility
 
 - Request: 为 Head1 增加三轴旋转中心标注；缩小 Head2 的旋转中心标注；增加导出视频时是否显示旋转中心的选项。

@@ -548,3 +548,20 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 - Focused checks: `pnpm typecheck` 通过；`git diff --check` 通过；本地浏览器实际拖动模型并观察松手后的短惯性，页面模型正常显示。`pnpm test:feature -- model.orientation` 未运行到测试阶段，因仓库现有 `playwright.config.ts` signed config authority mismatch；`pnpm ai:check` 仍受既有产品边界问题阻塞，与本次改动无关。
 - Performance authority: localized request; `appPerformance` 当前未声明 canonical model-orbit path IDs，因此本次只做 focused interaction refinement，不运行 measured performance suite。
 - Risks: 本地开发服务的历史 HMR 日志中存在旧模块 reload warning；重新加载后的当前页面可正常载入模型并完成拖动，未观察到新的运行时错误。
+
+### Iteration — 驾驶舱 GLB 头部与屏幕适配
+
+- Request: 同样的要求，和可爱机器人glb类似，导入并适配新机器人模型（驾驶舱）；要能独立显示屏幕内容，要自动做好三自由度的轴，要能控制2、3自由度，默认运动的还是头部区域。
+- Task type: Later focused product model/renderer/media integration; Tier 3.
+- Plan: 先检查上传 GLB 的真实顶点范围与部件视图，确定原生头部/屏幕/底座；添加内置驾驶舱选项和独立 profile，保留全部几何并修正朝向；将头部和屏幕挂到 Pitch/Roll/Yaw 层级，底座及支撑保持固定；沿用 2DOF/3DOF、时间轴、限位及旋转中心编辑。屏幕使用原有面部视频源并在原网格生成连续 UV；无视频时保持深色屏幕可见。
+- Inputs/workload: 最初检查 C:/Users/geneliu/Downloads/驾驶舱.glb，用户后续指定改用 C:/Users/geneliu/Downloads/驾驶舱-贴图.glb；内置资源为该贴图版原文件（65,093,700 字节、五个网格、五张嵌入 JPEG、约 1.97M 三角形）。保留全部几何、材质与原 UV，不做降面；模型/屏幕准备仅发生在替换，动作和轴心编辑只更新保留变换；视频纹理随源替换分配/清理。
+- Control inventory: 内置模型 select 增加 cockpitRobot；共享 motion.dofMode、motion.pitch/roll/yaw、geometry.head2*Center*、limits.axis*、source.faceVideo。模型选择、动作/轴心参数、视频上传均归面板；view.orbit 归画布 gizmo，保持共享相机状态。
+- Docs/contracts read: workflow、core/control-selection、core/layout、core/runtime-boundary、core/performance、core/setup-export、core/media-upload、schema-reference、component-rules、renderer-technique、performance。缺少 brainstorming/writing-plans workflow skill，使用本地合同的等效计划。只修改产品模块与资源，不修改签名 runtime/验证配置。
+- Verification plan: 驾驶舱真实资源绑定测试覆盖零位姿保真、底座固定、三轴方向/轴心、2DOF 锁定 Roll、屏幕 UV 连续且不镜像；共享 renderer/motion focused 测试；类型检查验证新增 profile/模块接口；内嵌浏览器检查模型初始正立、视频实际帧更新、清除后屏幕保留、中心调整、2/3DOF。运行对应 test:feature，遇既有签名配置错误时明确记录。
+- Performance intent: ordinary-product-work; 不运行 measured performance suite 或全量交付审计。
+- User-visible result: 新增“驾驶舱 GLB（贴图）”；默认正立，头壳与原生曲面屏幕共同绑定 Pitch/Roll/Yaw，底座和内部支撑固定。2DOF 为 Pitch+Yaw、Roll 回零；3DOF 恢复 Roll。驾驶舱三个默认轴心均为 Z=0.255m，各自 XYZ 可调，独立于其他模型参数。
+- Screen decision: 使用 tripo_part_6 本身，播放视频时临时采用连续 Y/Z 投影 UV，清除时还原精确的原 UV/贴图材质。视频建议 1024×630（约 1.63:1）、H.264 MP4、YUV420P、30 FPS；沿用静音循环播放。切换模型前先恢复屏幕材质，再清理模型资源，避免原贴图遗失或泄漏。
+- Verification: 类型检查通过；驾驶舱真实资源、共享 renderer 与自由度模式 15 项单测通过。内嵌浏览器看到正立模型及原贴图，测试视频正常左到右显示且帧内容变化；Roll=0.52rad 时仅头部/屏幕倾斜，2DOF 立即锁定 Roll 并回正。test:feature 因既有 playwright.config.ts 签名不匹配在测试执行前失败；ai:check 仍报告原有产品边界和 schema 行数问题。
+- Release steering: 用户要求“直接推到远程仓库并更新，后续再测试”。提交并推送 ryukiamor-maker/a1-head-motion 的 main，沿用现有 GitHub Pages Actions 部署，不再扩展测试。
+- Risks: 完整的受保护浏览器验收未通过执行前的既有签名检查；进一步端到端测试按用户要求留待后续。原有框架/产品合同债务不在本次适配中扩大修改。
+- Status: implemented; remote push and Pages deployment in progress.

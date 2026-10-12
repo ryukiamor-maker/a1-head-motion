@@ -5,6 +5,7 @@ import type {
   ToolcraftTransferMode,
 } from "./acceptance/types";
 import { appSchema } from "./app-schema";
+import { COCKPIT_CENTER_PREFIXES } from "./robot-head/cockpit-robot";
 
 const starterPersistenceSlices =
   appSchema.persistence.storage === "localStorage"
@@ -63,11 +64,24 @@ export const appProductReadiness: ToolcraftProductReadiness = {
   mode: "product",
   productName: "Robot Head Motion Studio",
   productSummary: "A Toolcraft editor for loading complete robot packages, comparing two- and three-degree head motion, and composing pitch, roll, and yaw animation with still, video, and GIF export.",
-  requestedBehavior: "Load the supplied head folder by default, accept complete URDF folders, switch the active head between two and three degrees of freedom, expose joint, camera, model-transform, link-length, and limit parameters, author animation on a keyframe timeline, and export common media formats.",
+  requestedBehavior: "Load supplied URDF and GLB robots, including the textured cockpit robot with a fixed base, an articulated head and native video screen. Switch between two and three head degrees of freedom, edit axis centers, joint limits and camera, author timeline motion and export common media formats.",
   viewInteraction: { mode: "orbit", orientationTargets: ["view.orbit"] },
 };
 
 export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
+  {
+    automated: true,
+    automatedTestName: "preserves the textured cockpit assembly while articulating only the head and native screen",
+    browser: { budget: "extended-io", file: "e2e/product-cockpit-robot.spec.ts", testName: "browser: textured cockpit robot keeps its native screen and supports two and three head axes" },
+    componentType: "select",
+    evidence: "product-output",
+    expectedObservable: "The textured cockpit loads upright, its base stays fixed during head motion, video occupies the native curved screen, and clearing video restores authored screen appearance.",
+    fixture: "Bundled 驾驶舱-贴图.glb with the face-screen test MP4",
+    id: "model.cockpitRobot",
+    kind: "control",
+    target: "model.variant",
+    userAction: "Select 驾驶舱 GLB（贴图）, edit Pitch/Roll/Yaw and their centers, switch 2/3 DOF, upload then clear the video.",
+  },
   {
     automated: true,
     automatedTestName: "switches between two- and three-degree head motion while preserving the rendered model",
@@ -160,6 +174,24 @@ export const appControlSectionInventory = [
     id: "source",
     targets: ["model.variant", "source.urdfFolder", "source.cuteRobotFile"],
     title: "URDF 模型包",
+  },
+  {
+    entity: "Native robot face-screen video",
+    entityId: "face-media",
+    finiteSelectors: [],
+    groupingReason: "One video source plays on the currently selected robot's native display surface.",
+    id: "face-media",
+    targets: ["source.faceVideo"],
+    title: "面部屏幕视频",
+  },
+  {
+    entity: "Cockpit head rotation centers",
+    entityId: "cockpit-centers",
+    finiteSelectors: [],
+    groupingReason: "These XYZ centers place the three cockpit head axes in Z-up coordinates at the neck; Roll is available in 3DOF mode.",
+    id: "cockpit-centers",
+    targets: COCKPIT_CENTER_PREFIXES.flatMap((prefix) => ["X", "Y", "Z"].map((axis) => `${prefix}${axis}`)),
+    title: "驾驶舱旋转中心",
   },
   {
     entity: "Head degree of freedom motion",

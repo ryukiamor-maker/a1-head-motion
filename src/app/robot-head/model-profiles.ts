@@ -1,5 +1,5 @@
 export type RobotModelProfile = {
-  id: "head1" | "head2" | "head3" | "cuteRobot";
+  id: "head1" | "head2" | "head3" | "cuteRobot" | "cockpitRobot";
   packagePath: string;
   jointNames: [string, string, string];
   originZ: [number, number, number];
@@ -13,6 +13,15 @@ export type RobotModelProfile = {
 };
 
 export const ROBOT_MODEL_PROFILES: Record<string, RobotModelProfile> = {
+  cockpitRobot: {
+    axisSigns: [-1, 1, 1],
+    centerDefaults: [[0, 0, 0.255], [0, 0, 0], [0, 0, 0]],
+    id: "cockpitRobot",
+    jointNames: ["pitch", "roll", "yaw"],
+    limits: [[-0.61, 0.61], [-0.523, 0.523], [-1.657, 1.657]],
+    originZ: [0.255, 0, 0],
+    packagePath: "cockpit-robot",
+  },
   head1: {
     axisSigns: [1, 1, 1],
     centerDefaults: [[0, 0, 0.028], [0, 0, 0.048], [0, 0, 0.082]],
@@ -53,6 +62,6 @@ export const ROBOT_MODEL_PROFILES: Record<string, RobotModelProfile> = {
 
 export function getRobotModelProfile(value: unknown): RobotModelProfile {
   return ROBOT_MODEL_PROFILES[
-    value === "head2" ? "head2" : value === "head3" ? "head3" : value === "cuteRobot" ? "cuteRobot" : "head1"
+    value === "head2" ? "head2" : value === "head3" ? "head3" : value === "cuteRobot" ? "cuteRobot" : value === "cockpitRobot" ? "cockpitRobot" : "head1"
   ];
 }

@@ -3,6 +3,7 @@ import { defineToolcraft } from "@/toolcraft/runtime";
 import { appIdentity } from "./app-identity";
 import { INTERACTION_DEMO_ACTION } from "./robot-head/interaction-demo";
 import { comparisonActions } from "./robot-head/comparison-actions";
+import { cockpitCenterSection } from "./robot-head/cockpit-controls";
 
 export const appSchema = defineToolcraft({
   canvas: {
@@ -30,6 +31,7 @@ export const appSchema = defineToolcraft({
                 { label: "Head 2", value: "head2" },
                 { label: "Head 3", value: "head3" },
                 { label: "可爱机器人 GLB", value: "cuteRobot" },
+                { label: "驾驶舱 GLB（贴图）", value: "cockpitRobot" },
               ],
               orderRole: "mode",
               performanceReason: "切换预置机械结构并重新绑定三轴关节。",
@@ -68,8 +70,9 @@ export const appSchema = defineToolcraft({
           title: "面部屏幕视频",
           controls: {
             video: {
+              applicability: { mode: "conditional", all: [{ oneOf: ["cuteRobot", "cockpitRobot"], target: "model.variant" }] },
               defaultValue: null,
-              description: "上传视频后自动循环播放，并贴到可爱机器人 GLB 的面部屏幕区域。",
+              description: "视频在当前机器人原生曲面屏幕内自动循环播放，清除后恢复该模型自带的屏幕材质。驾驶舱建议使用 1024×630、H.264 MP4、30 FPS。",
               keyframeable: false,
               label: "视频源",
               orderRole: "input",
@@ -596,6 +599,7 @@ export const appSchema = defineToolcraft({
             },
           },
         },
+        cockpitCenterSection,
         {
           id: "view",
           title: "视图",

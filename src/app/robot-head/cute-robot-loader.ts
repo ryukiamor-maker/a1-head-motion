@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { URDFJoint, URDFRobot } from "urdf-loader";
+import { bindCockpitRobot } from "./cockpit-robot";
+
+export async function loadCockpitRobot(url: string): Promise<URDFRobot> {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  return bindCockpitRobot(gltf.scene);
+}
 
 function createJoint(name: string, axis: THREE.Vector3, position: THREE.Vector3): URDFJoint {
   const joint = new THREE.Object3D() as URDFJoint;

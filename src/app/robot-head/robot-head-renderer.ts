@@ -12,6 +12,7 @@ import {
 import { readToolcraftOrientationPose } from "@/toolcraft/runtime/react";
 import { getRobotModelProfile } from "./model-profiles";
 import { isTwoDegreeOfFreedom } from "./head-motion-mode";
+import { COCKPIT_CENTER_PREFIXES, COCKPIT_NECK_CENTER } from "./cockpit-robot";
 
 type RobotHeadSurface = {
   camera: THREE.PerspectiveCamera;
@@ -62,6 +63,18 @@ function getJointCenterBaseline(joint: URDFJoint): JointCenterBaseline {
 export function getRobotHeadJointCenters(values: Record<string, unknown>): THREE.Vector3[] {
   const profile = getRobotModelProfile(values["model.variant"]);
   return profile.centerDefaults.map((fallback, index) => {
+    if (profile.id === "cockpitRobot") {
+      const prefix = COCKPIT_CENTER_PREFIXES[index];
+      const center = new THREE.Vector3(
+        asNumber(values[`${prefix}X`], COCKPIT_NECK_CENTER[0]),
+        asNumber(values[`${prefix}Y`], COCKPIT_NECK_CENTER[1]),
+        asNumber(values[`${prefix}Z`], COCKPIT_NECK_CENTER[2]),
+      );
+      // Child links compensate pivot edits at neutral. Their coordinate frame
+      // stays at the authored neck, so all UI centers remain absolute Z-up.
+      if (index > 0) center.sub(new THREE.Vector3(...COCKPIT_NECK_CENTER));
+      return center;
+    }
     if (profile.id === "head1") {
       const originTarget = [
         "geometry.axis1OriginZ",
@@ -127,7 +140,7 @@ export function applyRobotHeadValues(
       const [lower, upper] = asRange(values[definition.limit], definition.fallbackLimit);
       joint.limit.lower = Math.min(lower, upper);
       joint.limit.upper = Math.max(lower, upper);
-      if (profile.id === "head2" || profile.id === "head3" || profile.id === "cuteRobot") {
+      if (profile.id !== "head1") {
         applyHead2JointCenter(joint, definition.center);
       } else {
         const originZ = asNumber(values[definition.length], definition.lengthDefault);

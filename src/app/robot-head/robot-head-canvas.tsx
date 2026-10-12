@@ -20,7 +20,8 @@ import {
 } from "./robot-head-renderer";
 import { loadHead3Robot } from "./model3-loader";
 import { createMotionPackageImportCommands, MOTION_PACKAGE_IMPORT_TARGET } from "./motion-package";
-import { getCuteRobotVideoScreen, loadCuteRobot } from "./cute-robot-loader";
+import { loadCockpitRobot, loadCuteRobot } from "./cute-robot-loader";
+import { attachFaceScreenVideo } from "./face-screen-video";
 import {
   getCustomModelSource,
   getFaceVideoSource,
@@ -62,6 +63,7 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   const faceVideoSource = React.useSyncExternalStore(subscribeFaceVideoSource, getFaceVideoSource, getFaceVideoSource);
   const hostRef = React.useRef<HTMLDivElement>(null);
   const robotRef = React.useRef<URDFRobot | null>(null);
+  const releaseFaceVideoRef = React.useRef<(() => void) | null>(null);
   const sceneRef = React.useRef<THREE.Scene | null>(null);
   const cameraRef = React.useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = React.useRef<THREE.WebGLRenderer | null>(null);
@@ -154,6 +156,8 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
       cancelAnimationFrame(animationFrame);
       unregisterSurface();
       observer.disconnect();
+      releaseFaceVideoRef.current?.();
+      releaseFaceVideoRef.current = null;
       if (robotRef.current) disposeObject(robotRef.current);
       if (gridRef.current) disposeObject(gridRef.current);
       robotRef.current = null;
@@ -197,6 +201,8 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     let cancelled = false;
     const previous = robotRef.current;
     if (previous) {
+      releaseFaceVideoRef.current?.();
+      releaseFaceVideoRef.current = null;
       scene.remove(previous);
       disposeObject(previous);
       robotRef.current = null;
@@ -208,8 +214,11 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
     const load = async () => {
       try {
         const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
-        if (values["model.variant"] === "cuteRobot") {
-          const robot = await loadCuteRobot(customModelSource.url);
+        if (values["model.variant"] === "cuteRobot" || values["model.variant"] === "cockpitRobot") {
+          const isCockpit = values["model.variant"] === "cockpitRobot";
+          const robot = isCockpit
+            ? await loadCockpitRobot(new URL("cockpit-robot.glb", appBaseUrl).href)
+            : await loadCuteRobot(customModelSource.url);
           if (cancelled) { disposeObject(robot); return; }
           scene.add(robot);
           robotRef.current = robot;
@@ -220,14 +229,14 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
           const scale = 1.6 / Math.max(size.x, size.y, size.z, 0.001);
           robot.userData.fitCenter = center.clone();
           robot.userData.fitScale = scale;
-          rotationCenterMarkersRef.current = createRotationCenterMarkers(robot, "cuteRobot");
+          rotationCenterMarkersRef.current = createRotationCenterMarkers(robot, values["model.variant"]);
           const camera = cameraRef.current;
           if (camera) {
             applyRobotHeadValues(robot, camera, values);
             rotationCenterMarkersEnabledRef.current = true;
             updateRotationCenterMarkers(robot, rotationCenterMarkersRef.current, values, true);
           }
-          setStatus(`${customModelSource.name} · GLB · 已绑定三轴头部旋转中心`);
+          setStatus(`${isCockpit ? "驾驶舱-贴图.glb" : customModelSource.name} · GLB · 已绑定三轴头部旋转中心`);
           return;
         }
         if (values["model.variant"] === "head3") {
@@ -318,77 +327,15 @@ export function RobotHeadCanvas(): React.JSX.Element | null {
   }, [customModelSource, source, values["model.variant"]]);
 
   React.useEffect(() => {
-    const screen = getCuteRobotVideoScreen(robotRef.current);
-    if (!screen) return;
-    const meshes: THREE.Mesh[] = [];
-    screen.traverse((object) => { if ((object as THREE.Mesh).isMesh) meshes.push(object as THREE.Mesh); });
-    const materials = meshes.flatMap((mesh) => Array.isArray(mesh.material) ? mesh.material : [mesh.material]);
-    const previousMaterials = meshes.map((mesh) => mesh.material);
-    const previousUvs = meshes.map((mesh) => mesh.geometry.getAttribute("uv")?.clone() ?? null);
-    const videoMaterials: THREE.MeshBasicMaterial[] = [];
-    let video: HTMLVideoElement | null = null;
-    let texture: THREE.VideoTexture | null = null;
-    if (faceVideoSource.url) {
-      video = document.createElement("video");
-      video.src = faceVideoSource.url;
-      video.autoplay = true;
-      video.preload = "auto";
-      video.loop = true;
-      video.muted = true;
-      video.playsInline = true;
-      video.setAttribute("playsinline", "true");
-      video.addEventListener("loadedmetadata", () => { void video?.play().catch(() => undefined); }, { once: true });
-      video.addEventListener("canplay", () => { void video?.play().catch(() => undefined); }, { once: true });
-      texture = new THREE.VideoTexture(video);
-      texture.flipY = false;
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      meshes.forEach((mesh) => {
-        const position = mesh.geometry.getAttribute("position");
-        if (!position) return;
-        const uv = new Float32Array(position.count * 2);
-        for (let index = 0; index < position.count; index += 1) {
-          const y = position.getY(index);
-          const z = position.getZ(index);
-          // Project continuously over the authored screen surface. This avoids
-          // the GLB's disconnected bevel UV islands while keeping the original
-          // curved screen geometry and rounded outline.
-          // The GLB screen surface is authored with its local Z direction
-          // opposite to the viewer's left-to-right direction. Reverse U so
-          // uploaded video text is readable instead of horizontally mirrored.
-          uv[index * 2] = 1 - THREE.MathUtils.clamp((z + 0.292) / 0.584, 0, 1);
-          uv[index * 2 + 1] = 1 - THREE.MathUtils.clamp((y - 0.373) / 0.371, 0, 1);
-        }
-        mesh.geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-        const material = new THREE.MeshBasicMaterial({
-          color: 0xd9d9d9,
-          map: texture,
-          side: THREE.DoubleSide,
-          toneMapped: false,
-        });
-        videoMaterials.push(material);
-        mesh.material = material;
-      });
-      screen.visible = true;
-      video.load();
-      void video.play().catch(() => undefined);
-    } else {
-      // Keep the authored rounded screen visible when no video is attached;
-      // the model's original dark screen material is the idle display.
-      screen.visible = true;
-    }
+    releaseFaceVideoRef.current?.();
+    const robot = robotRef.current;
+    const release = robot
+      ? attachFaceScreenVideo(robot, faceVideoSource.url, values["model.variant"])
+      : null;
+    releaseFaceVideoRef.current = release;
     return () => {
-      video?.pause();
-      video?.removeAttribute("src");
-      video?.load();
-      texture?.dispose();
-      meshes.forEach((mesh, index) => {
-        mesh.material = previousMaterials[index];
-        const previousUv = previousUvs[index];
-        if (previousUv) mesh.geometry.setAttribute("uv", previousUv);
-      });
-      videoMaterials.forEach((material) => material.dispose());
+      release?.();
+      if (releaseFaceVideoRef.current === release) releaseFaceVideoRef.current = null;
     };
   }, [faceVideoSource, robotRevision, values["model.variant"]]);
 

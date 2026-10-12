@@ -7,17 +7,11 @@ import { useToolcraftEvaluatedValues } from "@/toolcraft/runtime/react";
 import { Button } from "@/toolcraft/ui";
 import styles from "./head-tracking-control.module.css";
 import { getActiveHeadAxes, isTwoDegreeOfFreedom } from "./head-motion-mode";
+import { poseFromCameraMatrix, type HeadTrackingPose as Pose } from "./head-tracking-pose";
 
 type TrackingValue = { enabled: boolean; smoothing: number };
-type Pose = { yaw: number; pitch: number; roll: number };
 const DEG = 180 / Math.PI;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-function poseFromMatrix(data: ArrayLike<number>): Pose {
-  const r00 = data[0] ?? 1; const r10 = data[1] ?? 0; const r20 = data[2] ?? 0;
-  const r21 = data[6] ?? 0; const r22 = data[10] ?? 1;
-  return { yaw: Math.atan2(r20, r00) * DEG, pitch: Math.atan2(-r21, r22) * DEG, roll: Math.atan2(r10, r00) * DEG };
-}
 
 export function HeadTrackingControl({ dispatch, setValue, state, value }: ToolcraftCustomControlRendererProps<TrackingValue>): React.JSX.Element {
   const animatedValues = useToolcraftEvaluatedValues();
@@ -89,7 +83,7 @@ export function HeadTrackingControl({ dispatch, setValue, state, value }: Toolcr
         if (!video || !tracker) return;
         const result = tracker.detectForVideo(video, performance.now()); const matrix = result.facialTransformationMatrixes?.[0]?.data;
         if (matrix) {
-          const raw = poseFromMatrix(matrix); const base = baseRef.current ?? (baseRef.current = raw); const smoothing = smoothingRef.current;
+          const raw = poseFromCameraMatrix(matrix); const base = baseRef.current ?? (baseRef.current = raw); const smoothing = smoothingRef.current;
           const target = { yaw: raw.yaw - base.yaw, pitch: raw.pitch - base.pitch, roll: raw.roll - base.roll };
           const previous = filteredPoseRef.current;
           const next = {

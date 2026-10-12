@@ -565,3 +565,18 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 - Release steering: 用户要求“直接推到远程仓库并更新，后续再测试”。提交并推送 ryukiamor-maker/a1-head-motion 的 main，沿用现有 GitHub Pages Actions 部署，不再扩展测试。
 - Risks: 完整的受保护浏览器验收未通过执行前的既有签名检查；进一步端到端测试按用户要求留待后续。原有框架/产品合同债务不在本次适配中扩大修改。
 - Status: implemented; remote push and Pages deployment in progress.
+
+### Iteration — 摄像头 Roll 映射方向修复
+
+- Request: 整个项目中，摄像头映射roll似乎是镜像的，修复一下。
+- Task type: Later focused camera-pose conversion bug fix; Tier 2.
+- Source/reference checked: head-tracking-control.tsx 的矩阵读取、基准校准、平滑、setMotion、录制关键帧；head-tracking-control.module.css 的 preview scaleX(-1)；全部五个 model profile 与 Roll 关节方向。
+- Root cause: 预览在 CSS 层水平镜像，检测仍读取原始视频；原摄像头 Roll 角度直接写入模型，使屏幕可见的歪头方向与镜像预览相反。
+- Plan/decision: 抽出共享姿态转换函数，仅在相机矩阵到产品姿态的边界反转 Roll；让校准/平滑/读数/实时关节和录制使用同一修正姿态。保留手动 Roll 与既有动作包的坐标定义。
+- Docs/contracts read: 已读 workflow、decision-contract、core/runtime-boundary、component-rules、renderer-technique、acceptance-testing 与 performance；缺少 systematic-debugging skill，使用源码证据和确定性方向样例定位。
+- Verification plan: 以正/负 Roll 的矩阵构造方向回归用例，对照镜像预览与正面机器人投影方向；覆盖五个 profile、非零校准、Yaw/Pitch 无回归，以及 2DOF 原有锁定。运行最小相关单测和类型检查；延续已授权的远程仓库/线上更新，进一步实际摄像头测试留后续。
+- Performance intent: ordinary-product-work; 不运行性能审计。
+- User-visible result: 摄像头 Roll 经统一方向校正后再参与初始基准、平滑及 setMotion；实时读数、模型歪头和新录制的 Roll 关键帧使用同一修正值，覆盖 Head1/Head2/Head3/可爱机器人/驾驶舱。
+- Verification: 两个 focused 测试文件共 7 项通过，包含正负 Roll 的镜像预览/模型投影一致性、五个 profile、倾斜初始校准、Pitch/Yaw 保持原映射、缩放/平移矩阵和既有 2DOF 模式；类型检查通过。未启动真实摄像头，进一步端到端验证按先更新后测试的已授权流程留待后续。
+- Release: 沿用 main -> GitHub Pages 发布流程，提交并推送本次统一映射修复。
+- Status: implemented and focused checks passed; publishing.
